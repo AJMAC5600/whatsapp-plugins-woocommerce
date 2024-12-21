@@ -1,0 +1,14 @@
+{
+    "name": "dell/whatsapp-plugins",
+    "description": "hi",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "Dell\\WhatsappPlugins\\": "src/"
+        }
+    },
+    "minimum-stability": "stable",
+    "require": {
+        "guzzlehttp/guzzle": "^7.9"
+    }
+}
