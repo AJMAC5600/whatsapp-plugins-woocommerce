@@ -1,5 +1,4 @@
 <?php
-
 if (!defined('ABSPATH')) exit;
 
 require 'vendor/autoload.php'; // Ensure Guzzle is autoloaded
@@ -16,6 +15,7 @@ $api_key = whatsapp_get_value('api_key');
 $api_url = whatsapp_get_value('api_url');
 $templates = [];
 
+// Fetch templates only if API key and URL are provided
 if ($api_key && $api_url) {
     try {
         // Create a Guzzle client
@@ -66,9 +66,9 @@ if ($api_key && $api_url) {
             </tr>
         </table>
 
-        <!-- Category Selection -->
-        <h3 class="title"><?php _e('Template Configuration', 'whatsapp-plugin'); ?></h3>
-        <table class="form-table">
+        <!-- Template Configuration Section -->
+        <h3 class="title" id="template-config-title" style="display: <?php echo ($api_key && $api_url) ? 'block' : 'none'; ?>;"><?php _e('Template Configuration', 'whatsapp-plugin'); ?></h3>
+        <table class="form-table" id="template-config-table" style="display: <?php echo ($api_key && $api_url) ? 'block' : 'none'; ?>;">
             <tr>
                 <th><label for="category"><?php _e('Category', 'whatsapp-plugin'); ?></label></th>
                 <td>
@@ -99,7 +99,7 @@ if ($api_key && $api_url) {
             <tr>
                 <th><label for="message"><?php _e('Message', 'whatsapp-plugin'); ?></label></th>
                 <td>
-                    <textarea id="message" name="whatsapp_settings[message]" rows="5" cols="50" readonly></textarea>
+                    <textarea id="message" name="whatsapp_settings[message]" rows="5" cols="50"></textarea>
                 </td>
             </tr>
         </table>
@@ -116,9 +116,20 @@ jQuery(document).ready(function ($) {
     const templateNameDropdown = $('#template_name');
     const channelIdDropdown = $('#channel_id');
     const messageTextarea = $('#message');
-
+    const templateConfigTitle = $('#template-config-title');
+    const templateConfigTable = $('#template-config-table');
+    
     // Templates fetched from the server
     const templates = <?php echo json_encode($templates); ?>;
+
+    // Show/hide template configuration section based on API key and URL
+    const apiKey = $('#api_key').val();
+    const apiUrl = $('#api_url').val();
+
+    if (!apiKey || !apiUrl) {
+        templateConfigTitle.hide();
+        templateConfigTable.hide();
+    }
 
     // Filter templates by category and update the template name dropdown
     categoryDropdown.on('change', function () {
@@ -155,6 +166,20 @@ jQuery(document).ready(function ($) {
         channelIdDropdown.empty().append('<option value="">' + '<?php _e('Select Channel ID', 'whatsapp-plugin'); ?>' + '</option>');
         if (id) {
             channelIdDropdown.append('<option value="' + id + '">' + id + '</option>');
+        }
+    });
+
+    // Dynamically hide/show Template Configuration section based on API key and URL inputs
+    $('#api_key, #api_url').on('change', function() {
+        const apiKey = $('#api_key').val();
+        const apiUrl = $('#api_url').val();
+
+        if (apiKey && apiUrl) {
+            templateConfigTitle.show();
+            templateConfigTable.show();
+        } else {
+            templateConfigTitle.hide();
+            templateConfigTable.hide();
         }
     });
 });
