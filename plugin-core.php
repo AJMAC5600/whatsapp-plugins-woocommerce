@@ -141,7 +141,7 @@ function send_order_confirmation_whatsapp($order_id) {
 
     whatsapp_send_message_via_api(
         $order->get_billing_phone(),
-        'order_confirmation',
+        'test_vikas',
         'en',
         __('Order Confirmation', 'whatsapp-plugin'),
         sprintf(__('Thank you for your order #%s. We will process it soon.', 'whatsapp-plugin'), $order->get_order_number())

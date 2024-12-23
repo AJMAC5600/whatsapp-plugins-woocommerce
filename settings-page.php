@@ -46,8 +46,9 @@ if ($api_key && $api_url) {
     <h2><?php _e('WhatsApp Configuration', 'whatsapp-plugin'); ?></h2>
 
     <form method="post" action="options.php" id="whatsapp-config-form">
-    <?php settings_fields('whatsapp_settings_group'); ?>
-    <input type="hidden" name="redirect_to" value="<?php echo esc_url(admin_url('admin.php?page=whatsapp-settings')); ?>">
+        <?php settings_fields('whatsapp_settings_group'); ?>
+        <input type="hidden" name="redirect_to" value="<?php echo esc_url(admin_url('admin.php?page=whatsapp-settings')); ?>">
+
         <!-- API Details Section -->
         <h3 class="title"><?php _e('API Details', 'whatsapp-plugin'); ?></h3>
         <table class="form-table">
@@ -65,25 +66,25 @@ if ($api_key && $api_url) {
             </tr>
         </table>
 
-        <!-- Template Configuration Section -->
+        <!-- Category Selection -->
         <h3 class="title"><?php _e('Template Configuration', 'whatsapp-plugin'); ?></h3>
         <table class="form-table">
+            <tr>
+                <th><label for="category"><?php _e('Category', 'whatsapp-plugin'); ?></label></th>
+                <td>
+                    <select id="category" name="whatsapp_settings[category]" required>
+                        <option value=""><?php _e('Select Category', 'whatsapp-plugin'); ?></option>
+                        <option value="UTILITY"><?php _e('Utility', 'whatsapp-plugin'); ?></option>
+                        <option value="AUTHENTICATION"><?php _e('Authentication', 'whatsapp-plugin'); ?></option>
+                        <option value="MARKETING"><?php _e('Marketing', 'whatsapp-plugin'); ?></option>
+                    </select>
+                </td>
+            </tr>
             <tr>
                 <th><label for="template_name"><?php _e('Template Name', 'whatsapp-plugin'); ?></label></th>
                 <td>
                     <select id="template_name" name="whatsapp_settings[template_name]" required>
                         <option value=""><?php _e('Select Template', 'whatsapp-plugin'); ?></option>
-                        <?php
-                        if (!empty($templates)) {
-                            foreach ($templates as $template) {
-                                if (isset($template['name'])) {
-                                    echo '<option value="' . esc_attr($template['name']) . '" data-components=\'' . json_encode($template['components']) . '\' data-channel-id="' . esc_attr($template['Id']) . '">' . esc_html($template['name']) . '</option>';
-                                }
-                            }
-                        } else {
-                            echo '<option value="">' . __('No templates available or API error', 'whatsapp-plugin') . '</option>';
-                        }
-                        ?>
                     </select>
                 </td>
             </tr>
@@ -103,7 +104,6 @@ if ($api_key && $api_url) {
             </tr>
         </table>
 
-        <!-- Save Button -->
         <p class="submit">
             <input type="submit" class="button-primary" value="<?php _e('Save Configuration', 'whatsapp-plugin'); ?>">
         </p>
@@ -112,17 +112,35 @@ if ($api_key && $api_url) {
 
 <script>
 jQuery(document).ready(function ($) {
+    const categoryDropdown = $('#category');
     const templateNameDropdown = $('#template_name');
     const channelIdDropdown = $('#channel_id');
     const messageTextarea = $('#message');
 
-    // Update message textarea and channel ID dropdown based on the selected template
+    // Templates fetched from the server
+    const templates = <?php echo json_encode($templates); ?>;
+
+    // Filter templates by category and update the template name dropdown
+    categoryDropdown.on('change', function () {
+        const selectedCategory = $(this).val();
+        templateNameDropdown.empty().append('<option value="">' + '<?php _e('Select Template', 'whatsapp-plugin'); ?>' + '</option>');
+
+        if (selectedCategory) {
+            const filteredTemplates = templates.filter(template => template.category === selectedCategory);
+            filteredTemplates.forEach(template => {
+                templateNameDropdown.append('<option value="' + template.name + '" data-components=\'' + JSON.stringify(template.components) + '\' data-id="' + template.Id + '">' + template.name + '</option>');
+            });
+        }
+    });
+
+    // Update message and channel ID when a template is selected
     templateNameDropdown.on('change', function () {
         const selectedOption = $(this).find(':selected');
         const components = selectedOption.data('components');
-        const channelId = selectedOption.data('channel-id');
+        const id = selectedOption.data('id');
 
         // Populate the message textarea
+        messageTextarea.val('');
         if (components) {
             let messageBody = '';
             components.forEach(component => {
@@ -130,16 +148,13 @@ jQuery(document).ready(function ($) {
                     messageBody += component.text + "\n";
                 }
             });
-
             messageTextarea.val(messageBody.trim());
-        } else {
-            messageTextarea.val('');
         }
 
         // Populate the Channel ID dropdown
         channelIdDropdown.empty().append('<option value="">' + '<?php _e('Select Channel ID', 'whatsapp-plugin'); ?>' + '</option>');
-        if (channelId) {
-            channelIdDropdown.append('<option value="' + channelId + '">' + channelId + '</option>');
+        if (id) {
+            channelIdDropdown.append('<option value="' + id + '">' + id + '</option>');
         }
     });
 });
