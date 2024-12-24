@@ -16,6 +16,11 @@ define('WHATSAPP_NOTIFY_TEXT_DOMAIN', 'whatsapp-notify');
 define('WHATSAPP_NOTIFY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WHATSAPP_NOTIFY_PLUGIN_URL', plugin_dir_url(__FILE__));
 
+//reuired files
+require_once plugin_dir_path(__FILE__) . 'api-functions.php';
+require_once plugin_dir_path(__FILE__) . 'otp-functions.php';
+
+
 // Ensure WooCommerce is active
 if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins')))) {
     add_action('admin_notices', 'whatsapp_require_woocommerce');

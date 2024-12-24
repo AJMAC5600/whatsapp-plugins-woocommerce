@@ -131,6 +131,7 @@ function whatsapp_send_message_via_api($phone, $template_name, $language_code, $
     return true;
 }
 
+
 // Section 6: WooCommerce Event Handlers
 // Order Placement
 add_action('woocommerce_thankyou', 'send_order_confirmation_whatsapp', 10, 1);
