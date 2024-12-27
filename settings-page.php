@@ -14,6 +14,11 @@ function whatsapp_get_value($var) {
 $api_key = whatsapp_get_value('api_key');
 $api_url = whatsapp_get_value('api_url');
 $templates = [];
+$category = whatsapp_get_value('category');
+$template_name = whatsapp_get_value('template_name');
+$channel_id = whatsapp_get_value('channel_id');
+$message = whatsapp_get_value('message');
+$enable_otp = whatsapp_get_value('enable_otp');
 
 // Fetch templates only if API key and URL are provided
 if ($api_key && $api_url) {
@@ -39,7 +44,6 @@ if ($api_key && $api_url) {
         echo "<p>Error fetching templates: " . $e->getMessage() . "</p>";
     }
 }
-
 ?>
 
 <div class="wrap woocommerce">
@@ -74,9 +78,9 @@ if ($api_key && $api_url) {
                 <td>
                     <select id="category" name="whatsapp_settings[category]" required>
                         <option value=""><?php _e('Select Category', 'whatsapp-plugin'); ?></option>
-                        <option value="UTILITY"><?php _e('Utility', 'whatsapp-plugin'); ?></option>
-                        <option value="AUTHENTICATION"><?php _e('Authentication', 'whatsapp-plugin'); ?></option>
-                        <option value="MARKETING"><?php _e('Marketing', 'whatsapp-plugin'); ?></option>
+                        <option value="UTILITY" <?php selected($category, 'UTILITY'); ?>><?php _e('Utility', 'whatsapp-plugin'); ?></option>
+                        <option value="AUTHENTICATION" <?php selected($category, 'AUTHENTICATION'); ?>><?php _e('Authentication', 'whatsapp-plugin'); ?></option>
+                        <option value="MARKETING" <?php selected($category, 'MARKETING'); ?>><?php _e('Marketing', 'whatsapp-plugin'); ?></option>
                     </select>
                 </td>
             </tr>
@@ -85,6 +89,13 @@ if ($api_key && $api_url) {
                 <td>
                     <select id="template_name" name="whatsapp_settings[template_name]" required>
                         <option value=""><?php _e('Select Template', 'whatsapp-plugin'); ?></option>
+                        <?php
+                        if ($templates) {
+                            foreach ($templates as $template) {
+                                echo '<option value="' . esc_attr($template['name']) . '" ' . selected($template_name, $template['name'], false) . '>' . esc_html($template['name']) . '</option>';
+                            }
+                        }
+                        ?>
                     </select>
                 </td>
             </tr>
@@ -93,16 +104,37 @@ if ($api_key && $api_url) {
                 <td>
                     <select id="channel_id" name="whatsapp_settings[channel_id]" required>
                         <option value=""><?php _e('Select Channel ID', 'whatsapp-plugin'); ?></option>
+                        <?php
+                        if ($templates) {
+                            foreach ($templates as $template) {
+                                echo '<option value="' . esc_attr($template['Id']) . '" ' . selected($channel_id, $template['Id'], false) . '>' . esc_html($template['Id']) . '</option>';
+                            }
+                        }
+                        ?>
                     </select>
                 </td>
             </tr>
             <tr>
                 <th><label for="message"><?php _e('Message', 'whatsapp-plugin'); ?></label></th>
                 <td>
-                    <textarea id="message" name="whatsapp_settings[message]" rows="5" cols="50"></textarea>
+                    <textarea id="message" name="whatsapp_settings[message]" rows="5" cols="50"><?php echo esc_textarea($message); ?></textarea>
                 </td>
             </tr>
         </table>
+
+        <!-- OTP Configuration Section -->
+        <div id="otp-section">
+            <h3 class="title"><?php _e('OTP Configuration', 'whatsapp-plugin'); ?></h3>
+            <table class="form-table">
+                <tr>
+                    <th><label for="enable_otp"><?php _e('Enable OTP Feature', 'whatsapp-plugin'); ?></label></th>
+                    <td>
+                        <input type="checkbox" id="enable_otp" name="whatsapp_settings[enable_otp]" value="1" <?php checked($enable_otp, '1'); ?>>
+                        <span><?php _e('Check to enable OTP feature.', 'whatsapp-plugin'); ?></span>
+                    </td>
+                </tr>
+            </table>
+        </div>
 
         <p class="submit">
             <input type="submit" class="button-primary" value="<?php _e('Save Configuration', 'whatsapp-plugin'); ?>">
@@ -118,6 +150,7 @@ jQuery(document).ready(function ($) {
     const messageTextarea = $('#message');
     const templateConfigTitle = $('#template-config-title');
     const templateConfigTable = $('#template-config-table');
+    const otpSection = $('#otp-section'); // The OTP section element
     
     // Templates fetched from the server
     const templates = <?php echo json_encode($templates); ?>;
@@ -182,5 +215,23 @@ jQuery(document).ready(function ($) {
             templateConfigTable.hide();
         }
     });
+
+    // Fetch the OTP enable setting from the server (use the same method you are using to fetch settings)
+    const enableOtp = <?php echo json_encode(get_option('whatsapp_settings')['enable_otp']); ?>;
+
+    // Always show the OTP section, regardless of checkbox state
+    otpSection.show();
+
+    // Optionally, toggle the contents inside the OTP section based on the checkbox state
+    $('#enable_otp').on('change', function() {
+        if ($(this).prop('checked')) {
+            // If checked, you can add any additional logic if needed
+            console.log('OTP enabled');
+        } else {
+            // If unchecked, you can handle any changes if required
+            console.log('OTP disabled');
+        }
+    });
 });
 </script>
+

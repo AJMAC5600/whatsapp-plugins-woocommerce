@@ -16,9 +16,10 @@ define('WHATSAPP_NOTIFY_TEXT_DOMAIN', 'whatsapp-notify');
 define('WHATSAPP_NOTIFY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WHATSAPP_NOTIFY_PLUGIN_URL', plugin_dir_url(__FILE__));
 
-//reuired files
-require_once plugin_dir_path(__FILE__) . 'api-functions.php';
-require_once plugin_dir_path(__FILE__) . 'otp-functions.php';
+
+// Required files
+// require_once WHATSAPP_NOTIFY_PLUGIN_DIR . 'api-functions.php';
+// require_once WHATSAPP_NOTIFY_PLUGIN_DIR . 'otp-functions.php';
 
 
 // Ensure WooCommerce is active
