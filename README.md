@@ -137,7 +137,7 @@ You can use the following shortcode to display the OTP form anywhere on your sit
 
 ## Support
 
-For support, please contact our team via the [support page](https://example.com/support).
+For support, please contact our team via the [support page](mailto:abhishekajeetjha@gmail.com).
 
 ---
 
