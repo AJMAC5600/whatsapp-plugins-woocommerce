@@ -38,6 +38,11 @@ function register_whatsapp_settings() {
     ]);
 }
 
+function is_otp_enabled() {
+    $settings = get_option('whatsapp_settings', []);
+    return isset($settings['enable_otp']) && $settings['enable_otp'] === '1';
+}
+
 // Sanitization callback for template settings
 function sanitize_whatsapp_template_settings($input) {
     $output = [];
@@ -178,6 +183,10 @@ function whatsapp_send_message_via_api($phone, $template_name, $language_code, $
 
 // Section 6: WooCommerce Registration - Add Phone Number and OTP Fields
 function add_phone_number_otp_fields_to_registration() {
+    if (!is_otp_enabled()) {
+        // Skip OTP validation if the feature is disabled
+        return;
+    }
     wp_nonce_field('whatsapp_otp_action', 'whatsapp_otp_nonce');
     ?>
     <p class="form-row form-row-wide">
@@ -194,6 +203,10 @@ function add_phone_number_otp_fields_to_registration() {
 }
 
 function add_phone_number_column_to_wc_customer_lookup() {
+    if (!is_otp_enabled()) {
+        // Skip OTP validation if the feature is disabled
+        return;
+    }
     global $wpdb;
 
     $table_name = $wpdb->prefix . 'wc_customer_lookup';
@@ -235,6 +248,10 @@ add_action('woocommerce_register_form', 'add_phone_number_otp_fields_to_registra
  * @param string $phone_number The phone number to save.
  */
 function store_phone_number_in_wc_customer_lookup($customer_id, $phone_number) {
+    if (!is_otp_enabled()) {
+        // Skip OTP validation if the feature is disabled
+        return;
+    }
     global $wpdb;
 
     // Sanitize the input.
@@ -281,6 +298,10 @@ register_activation_hook(__FILE__, 'activate_whatsapp_plugin');
 
 // Section 7: Validate OTP and Phone Number during Registration
 function validate_phone_number_and_otp($username, $email, $validation_errors) {
+    if (!is_otp_enabled()) {
+        // Skip OTP validation if the feature is disabled
+        return;
+    }
     if (isset($_POST['phone_number']) && empty($_POST['phone_number'])) {
         $validation_errors->add('phone_number_error', __('Phone number is required.', 'whatsapp-plugin'));
     }
@@ -321,6 +342,10 @@ add_action('woocommerce_created_customer', function($customer_id) {
 });
 // Add password fields to WooCommerce registration form
 function add_password_fields_to_registration() {
+    if (!is_otp_enabled()) {
+        // Skip OTP validation if the feature is disabled
+        return;
+    }
     ?>
     <p class="form-row form-row-wide">
         <label for="reg_password"><?php _e('Password', 'woocommerce'); ?> <span class="required">*</span></label>
@@ -337,6 +362,10 @@ add_action('woocommerce_register_form', 'add_password_fields_to_registration');
 
 // Validate password fields during registration
 function validate_password_fields($username, $email, $validation_errors) {
+    if (!is_otp_enabled()) {
+        // Skip OTP validation if the feature is disabled
+        return;
+    }
     if (isset($_POST['password']) && isset($_POST['password_confirm'])) {
         $password = $_POST['password'];
         $password_confirm = $_POST['password_confirm'];
@@ -358,6 +387,10 @@ add_filter('woocommerce_register_post', 'validate_password_fields', 10, 3);
 
 // Save user password during registration
 function save_password_during_registration($customer_id) {
+    if (!is_otp_enabled()) {
+        // Skip OTP validation if the feature is disabled
+        return;
+    }
     if (isset($_POST['password'])) {
         wp_set_password($_POST['password'], $customer_id);
     }
@@ -369,6 +402,10 @@ add_action('woocommerce_created_customer', 'save_password_during_registration');
 // Add OTP field to WooCommerce login form
 add_action('woocommerce_login_form', 'add_phone_number_otp_field_to_login');
 function add_phone_number_otp_field_to_login() {
+    if (!is_otp_enabled()) {
+        // Skip OTP validation if the feature is disabled
+        return;
+    }
     wp_nonce_field('whatsapp_login_otp_action', 'whatsapp_login_otp_nonce'); // Security nonce
     ?>
     <p class="form-row form-row-wide">
@@ -385,6 +422,10 @@ add_action('wp_ajax_send_login_otp', 'send_login_otp_via_ajax');
 add_action('wp_ajax_nopriv_send_login_otp', 'send_login_otp_via_ajax');
 
 function send_login_otp_via_ajax() {
+    if (!is_otp_enabled()) {
+        // Skip OTP validation if the feature is disabled
+        return;
+    }
     check_ajax_referer('whatsapp_login_otp_action', 'security'); // Security nonce check
 
     if (isset($_POST['username'])) {
@@ -457,6 +498,10 @@ function send_login_otp_via_ajax() {
 // Validate OTP during login
 add_action('wp_authenticate', 'validate_login_otp', 10, 2);
 function validate_login_otp($username, $password) {
+    if (!is_otp_enabled()) {
+        // Skip OTP validation if the feature is disabled
+        return;
+    }
     if (isset($_POST['login_otp_code'])) {
         $otp_code = sanitize_text_field($_POST['login_otp_code']);
         if (!session_id()) {
@@ -485,6 +530,10 @@ function validate_login_otp($username, $password) {
 add_action('wp_ajax_send_otp', 'send_otp_via_ajax');
 add_action('wp_ajax_nopriv_send_otp', 'send_otp_via_ajax');
 function send_otp_via_ajax() {
+    if (!is_otp_enabled()) {
+        // Skip OTP validation if the feature is disabled
+        return;
+    }
     check_ajax_referer('whatsapp_otp_action', 'security'); // Verify nonce for security
 
     if (isset($_POST['phone_number'])) {
@@ -517,6 +566,10 @@ function send_otp_via_ajax() {
 
 // Enqueue script on the frontend
 function enqueue_whatsapp_otp_script() {
+    if (!is_otp_enabled()) {
+        // Skip OTP validation if the feature is disabled
+        return;
+    }
     if (is_page('my-account')) { // Replace with your registration page condition
         wp_enqueue_script(
             'whatsapp-otp-script',
