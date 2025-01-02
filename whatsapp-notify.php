@@ -8,7 +8,8 @@ Text Domain: whatsapp-notify
 */
 
 // Exit if accessed directly
-if (!defined('ABSPATH')) exit;
+if (!defined('ABSPATH'))
+    exit;
 
 // Define constants for the plugin
 define('WHATSAPP_NOTIFY_VERSION', '1.0');
@@ -21,6 +22,11 @@ define('WHATSAPP_NOTIFY_PLUGIN_URL', plugin_dir_url(__FILE__));
 // require_once WHATSAPP_NOTIFY_PLUGIN_DIR . 'api-functions.php';
 // require_once WHATSAPP_NOTIFY_PLUGIN_DIR . 'otp-functions.php';
 
+if (is_admin()) {
+    require_once plugin_dir_path(__FILE__) . 'settings-page.php';
+}
+
+
 
 // Ensure WooCommerce is active
 if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins')))) {
@@ -29,7 +35,8 @@ if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get
     return;
 }
 
-function whatsapp_require_woocommerce() {
+function whatsapp_require_woocommerce()
+{
     echo '<div class="error"><p><strong>' . __('WhatsApp Notify:', WHATSAPP_NOTIFY_TEXT_DOMAIN) . '</strong> ' . __('WooCommerce is required for this plugin to function. Please activate WooCommerce.', WHATSAPP_NOTIFY_TEXT_DOMAIN) . '</p></div>';
 }
 
@@ -38,7 +45,8 @@ include_once WHATSAPP_NOTIFY_PLUGIN_DIR . 'plugin-core.php';
 
 // Handle plugin activation
 register_activation_hook(__FILE__, 'whatsapp_notify_activate');
-function whatsapp_notify_activate() {
+function whatsapp_notify_activate()
+{
     // Ensure WooCommerce is active before activation
     if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins')))) {
         wp_die(__('WooCommerce must be active to use WhatsApp Notify.', WHATSAPP_NOTIFY_TEXT_DOMAIN));
@@ -49,7 +57,8 @@ function whatsapp_notify_activate() {
 }
 
 // Create a database table for notifications
-function whatsapp_create_db_table() {
+function whatsapp_create_db_table()
+{
     global $wpdb;
     $table_name = $wpdb->prefix . 'whatsapp_notifications';
     $charset_collate = $wpdb->get_charset_collate();
@@ -69,7 +78,8 @@ function whatsapp_create_db_table() {
 
 // Handle plugin deactivation
 register_deactivation_hook(__FILE__, 'whatsapp_notify_deactivate');
-function whatsapp_notify_deactivate() {
+function whatsapp_notify_deactivate()
+{
     // Clean up scheduled events
     if (wp_next_scheduled('whatsapp_cron_hook')) {
         $timestamp = wp_next_scheduled('whatsapp_cron_hook');
@@ -79,7 +89,8 @@ function whatsapp_notify_deactivate() {
 
 // Handle plugin uninstallation
 register_uninstall_hook(__FILE__, 'whatsapp_notify_uninstall');
-function whatsapp_notify_uninstall() {
+function whatsapp_notify_uninstall()
+{
     global $wpdb;
     $table_name = $wpdb->prefix . 'whatsapp_notifications';
 
@@ -92,7 +103,8 @@ function whatsapp_notify_uninstall() {
 
 // Schedule a custom cron job on activation
 register_activation_hook(__FILE__, 'whatsapp_notify_schedule_cron');
-function whatsapp_notify_schedule_cron() {
+function whatsapp_notify_schedule_cron()
+{
     if (!wp_next_scheduled('whatsapp_cron_hook')) {
         wp_schedule_event(time(), 'hourly', 'whatsapp_cron_hook');
     }
@@ -100,19 +112,24 @@ function whatsapp_notify_schedule_cron() {
 
 // Add a custom cron interval (if needed)
 add_filter('cron_schedules', 'whatsapp_add_cron_interval');
-function whatsapp_add_cron_interval($schedules) {
+function whatsapp_add_cron_interval($schedules)
+{
     if (!isset($schedules['hourly'])) {
         $schedules['hourly'] = [
             'interval' => 3600,
-            'display'  => __('Once Hourly', WHATSAPP_NOTIFY_TEXT_DOMAIN),
+            'display' => __('Once Hourly', WHATSAPP_NOTIFY_TEXT_DOMAIN),
         ];
     }
     return $schedules;
 }
+add_action('admin_menu', function () {
+    error_log('admin_menu hook is working!');
+});
 
 // Handle cron jobs
 add_action('whatsapp_cron_hook', 'whatsapp_handle_cron');
-function whatsapp_handle_cron() {
+function whatsapp_handle_cron()
+{
     global $wpdb;
     $table_name = $wpdb->prefix . 'whatsapp_notifications';
 

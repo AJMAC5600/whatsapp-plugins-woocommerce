@@ -1,237 +1,316 @@
 <?php
-if (!defined('ABSPATH')) exit;
+
+if (!defined('ABSPATH')) {
+    exit; // Prevent direct access
+}
 
 require 'vendor/autoload.php'; // Ensure Guzzle is autoloaded
 use GuzzleHttp\Client;
 
 // Fetch saved WhatsApp settings
-function whatsapp_get_value($var) {
-    global $whatsapp_settings;
-    return isset($whatsapp_settings[$var]) ? $whatsapp_settings[$var] : '';
+if (!function_exists('whatsapp_get_value')) {
+    function whatsapp_get_value($key)
+    {
+        $options = get_option('whatsapp_settings', []);
+        return isset($options[$key]) ? $options[$key] : '';
+    }
 }
 
-// Initialize variables
-$api_key = whatsapp_get_value('api_key');
-$api_url = whatsapp_get_value('api_url');
-$templates = [];
-$category = whatsapp_get_value('category');
-$template_name = whatsapp_get_value('template_name');
-$channel_id = whatsapp_get_value('channel_id');
-$message = whatsapp_get_value('message');
-$enable_otp = whatsapp_get_value('enable_otp');
+// Fetch template payload
+function fetch_template_payload()
+{
+    // error_log('Fetching template payload');
+    // Check if template and channel number are provided
+    if (empty($_POST['template_name']) || empty($_POST['channel_number'])) {
+        wp_send_json_error(['message' => 'Missing required parameters'], 400);
+    }
 
-// Fetch templates only if API key and URL are provided
-if ($api_key && $api_url) {
+    $api_key = whatsapp_get_value('api_key');
+    $api_url = whatsapp_get_value('api_url');
+    $template_name = sanitize_text_field($_POST['template_name']);
+    $channel_number = sanitize_text_field($_POST['channel_number']);
+    // error_log('Template Name: ' . $template_name);
+    // error_log('Channel Number: ' . $channel_number);
+    if (!$api_key || !$api_url) {
+        wp_send_json_error(['message' => 'API key or URL is missing'], 400);
+    }
+
     try {
-        // Create a Guzzle client
         $client = new Client();
-        $response = $client->request('GET', $api_url . '/api/v1.0/templates', [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $api_key,
-            ],
-        ]);
+        $headers = ['Authorization' => 'Bearer ' . $api_key];
+        $endpoint = $api_url . '/api/v1.0/template-payload/' . $channel_number. '/' .$template_name;
 
-        // Decode the JSON response
-        $templates = json_decode($response->getBody()->getContents(), true);
-
-        // Check for JSON decoding issues
+        $response = $client->request('GET', $endpoint, ['headers' => $headers]);
+        $body = json_decode($response->getBody(), true);
+        // error_log(print_r($body, true));
         if (json_last_error() !== JSON_ERROR_NONE) {
-            echo "<p>Error decoding API response: " . json_last_error_msg() . "</p>";
-            $templates = [];
+            throw new Exception('Error decoding API response: ' . json_last_error_msg());
         }
-    } catch (\Exception $e) {
-        // Handle API request errors
-        echo "<p>Error fetching templates: " . $e->getMessage() . "</p>";
+
+        wp_send_json_success($body);
+    } catch (Exception $e) {
+        wp_send_json_error(['message' => $e->getMessage()], 500);
     }
 }
-?>
+add_action('wp_ajax_fetch_template_payload', 'fetch_template_payload');
 
-<div class="wrap woocommerce">
-    <h2><?php _e('WhatsApp Configuration', 'whatsapp-plugin'); ?></h2>
+// Fetch templates and channels if API Key and URL are set
+function fetch_templates_and_channels()
+{
+    $templates = [];
+    $channels = [];
+    $api_key = whatsapp_get_value('api_key');
+    $api_url = whatsapp_get_value('api_url');
 
-    <form method="post" action="options.php" id="whatsapp-config-form">
-        <?php settings_fields('whatsapp_settings_group'); ?>
-        <input type="hidden" name="redirect_to" value="<?php echo esc_url(admin_url('admin.php?page=whatsapp-settings')); ?>">
+    if ($api_key && $api_url) {
+        try {
+            $client = new Client();
+            $headers = ['Authorization' => 'Bearer ' . $api_key];
 
-        <!-- API Details Section -->
-        <h3 class="title"><?php _e('API Details', 'whatsapp-plugin'); ?></h3>
-        <table class="form-table">
-            <tr>
-                <th><label for="api_key"><?php _e('API Key', 'whatsapp-plugin'); ?></label></th>
-                <td>
-                    <input type="text" id="api_key" name="whatsapp_settings[api_key]" value="<?php echo esc_attr($api_key); ?>" required>
-                </td>
-            </tr>
-            <tr>
-                <th><label for="api_url"><?php _e('API URL', 'whatsapp-plugin'); ?></label></th>
-                <td>
-                    <input type="text" id="api_url" name="whatsapp_settings[api_url]" value="<?php echo esc_attr($api_url); ?>" required>
-                </td>
-            </tr>
-        </table>
+            // Fetch templates
+            $template_response = $client->get($api_url . '/api/v1.0/templates', ['headers' => $headers]);
+            $templates = json_decode($template_response->getBody(), true);
 
-        <!-- Template Configuration Section -->
-        <h3 class="title" id="template-config-title" style="display: <?php echo ($api_key && $api_url) ? 'block' : 'none'; ?>;"><?php _e('Template Configuration', 'whatsapp-plugin'); ?></h3>
-        <table class="form-table" id="template-config-table" style="display: <?php echo ($api_key && $api_url) ? 'block' : 'none'; ?>;">
-            <tr>
-                <th><label for="category"><?php _e('Category', 'whatsapp-plugin'); ?></label></th>
-                <td>
-                    <select id="category" name="whatsapp_settings[category]" required>
-                        <option value=""><?php _e('Select Category', 'whatsapp-plugin'); ?></option>
-                        <option value="UTILITY" <?php selected($category, 'UTILITY'); ?>><?php _e('Utility', 'whatsapp-plugin'); ?></option>
-                        <option value="AUTHENTICATION" <?php selected($category, 'AUTHENTICATION'); ?>><?php _e('Authentication', 'whatsapp-plugin'); ?></option>
-                        <option value="MARKETING" <?php selected($category, 'MARKETING'); ?>><?php _e('Marketing', 'whatsapp-plugin'); ?></option>
-                    </select>
-                </td>
-            </tr>
-            <tr>
-                <th><label for="template_name"><?php _e('Template Name', 'whatsapp-plugin'); ?></label></th>
-                <td>
-                    <select id="template_name" name="whatsapp_settings[template_name]" required>
-                        <option value=""><?php _e('Select Template', 'whatsapp-plugin'); ?></option>
-                        <?php
-                        if ($templates) {
-                            foreach ($templates as $template) {
-                                echo '<option value="' . esc_attr($template['name']) . '" ' . selected($template_name, $template['name'], false) . '>' . esc_html($template['name']) . '</option>';
-                            }
-                        }
-                        ?>
-                    </select>
-                </td>
-            </tr>
-            <tr>
-                <th><label for="channel_id"><?php _e('Channel ID', 'whatsapp-plugin'); ?></label></th>
-                <td>
-                    <select id="channel_id" name="whatsapp_settings[channel_id]" required>
-                        <option value=""><?php _e('Select Channel ID', 'whatsapp-plugin'); ?></option>
-                        <?php
-                        if ($templates) {
-                            foreach ($templates as $template) {
-                                echo '<option value="' . esc_attr($template['Id']) . '" ' . selected($channel_id, $template['Id'], false) . '>' . esc_html($template['Id']) . '</option>';
-                            }
-                        }
-                        ?>
-                    </select>
-                </td>
-            </tr>
-            <tr>
-                <th><label for="message"><?php _e('Message', 'whatsapp-plugin'); ?></label></th>
-                <td>
-                    <textarea id="message" name="whatsapp_settings[message]" rows="5" cols="50"><?php echo esc_textarea($message); ?></textarea>
-                </td>
-            </tr>
-        </table>
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception('Error decoding templates response: ' . json_last_error_msg());
+            }
 
-        <!-- OTP Configuration Section -->
-        <div id="otp-section">
-            <h3 class="title"><?php _e('OTP Configuration', 'whatsapp-plugin'); ?></h3>
-            <table class="form-table">
-                <tr>
-                    <th><label for="enable_otp"><?php _e('Enable OTP Feature', 'whatsapp-plugin'); ?></label></th>
-                    <td>
-                        <input type="checkbox" id="enable_otp" name="whatsapp_settings[enable_otp]" value="1" <?php checked($enable_otp, '1'); ?>>
-                        <span><?php _e('Check to enable OTP feature.', 'whatsapp-plugin'); ?></span>
-                    </td>
-                </tr>
-            </table>
-        </div>
+            // Fetch channels
+            $channel_response = $client->get($api_url . '/api/v1.0/channels', ['headers' => $headers]);
+            $channels = json_decode($channel_response->getBody(), true);
 
-        <p class="submit">
-            <input type="submit" class="button-primary" value="<?php _e('Save Configuration', 'whatsapp-plugin'); ?>">
-        </p>
-    </form>
-</div>
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception('Error decoding channels response: ' . json_last_error_msg());
+            }
+        } catch (Exception $e) {
+            // error_log('[API Error]: ' . $e->getMessage());
+        }
+    }
+    return ['templates' => $templates, 'channels' => $channels];
+}
+function fetch_single_channel()
+{
+    $channel = null;
+    $api_key = whatsapp_get_value('api_key');
+    $api_url = whatsapp_get_value('api_url');
 
-<script>
-jQuery(document).ready(function ($) {
-    const categoryDropdown = $('#category');
-    const templateNameDropdown = $('#template_name');
-    const channelIdDropdown = $('#channel_id');
-    const messageTextarea = $('#message');
-    const templateConfigTitle = $('#template-config-title');
-    const templateConfigTable = $('#template-config-table');
-    const otpSection = $('#otp-section'); // The OTP section element
-    
-    // Templates fetched from the server
-    const templates = <?php echo json_encode($templates); ?>;
+    if ($api_key && $api_url) {
+        try {
+            $client = new Client();
+            $headers = ['Authorization' => 'Bearer ' . $api_key];
 
-    // Show/hide template configuration section based on API key and URL
-    const apiKey = $('#api_key').val();
-    const apiUrl = $('#api_url').val();
+            // Fetch channels
+            $channel_response = $client->get($api_url . '/api/v1.0/channels', ['headers' => $headers]);
+            $channels = json_decode($channel_response->getBody(), true);
 
-    if (!apiKey || !apiUrl) {
-        templateConfigTitle.hide();
-        templateConfigTable.hide();
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception('Error decoding channels response: ' . json_last_error_msg());
+            }
+
+            // Get the first channel from the response
+            if (!empty($channels)) {
+                $channel = $channels[0]; // Get the first channel only
+            }
+        } catch (Exception $e) {
+            // error_log('[API Error]: ' . $e->getMessage());
+        }
     }
 
-    // Filter templates by category and update the template name dropdown
-    categoryDropdown.on('change', function () {
-        const selectedCategory = $(this).val();
-        templateNameDropdown.empty().append('<option value="">' + '<?php _e('Select Template', 'whatsapp-plugin'); ?>' + '</option>');
+    return $channel;
+}
 
-        if (selectedCategory) {
-            const filteredTemplates = templates.filter(template => template.category === selectedCategory);
-            filteredTemplates.forEach(template => {
-                templateNameDropdown.append('<option value="' + template.name + '" data-components=\'' + JSON.stringify(template.components) + '\' data-id="' + template.Id + '">' + template.name + '</option>');
-            });
+
+// Register settings page
+if (!function_exists('register_whatsapp_config_page')) {
+    function register_whatsapp_config_page()
+    {
+        add_menu_page(
+            'WhatsApp Config',
+            'WhatsApp Config',
+            'manage_options',
+            'manage-whatsapp-config',
+            'display_whatsapp_config_page',
+            'dashicons-admin-generic',
+            90
+        );
+    }
+    add_action('admin_menu', 'register_whatsapp_config_page');
+}
+
+
+// Render the settings page
+function display_whatsapp_config_page()
+{
+    $single_channel = fetch_single_channel(); // Fetch a single channel dynamically
+    $templates = fetch_templates_and_channels()['templates']; // Assuming this function still fetches templates
+    $sections = ['order_book', 'order_cancellation', 'order_status_change', 'order_success'];
+    ?>
+
+    <div class="wrap">
+        <h1><?php esc_html_e('WhatsApp Configuration', 'whatsapp-plugin'); ?></h1>
+
+        <form method="post" action="options.php">
+            <?php
+            settings_fields('whatsapp_settings_group');
+            do_settings_sections('whatsapp-settings');
+            submit_button();
+            ?>
+              <tr>
+                        <th><label for="<?php echo esc_attr($section . 'channel_id'); ?>"><?php esc_html_e('Channel', 'whatsapp-plugin'); ?></label></th>
+                        <td>
+                            <select id="<?php echo esc_attr($section . 'channel_id'); ?>"
+                                    name="whatsapp_settings[<?php echo esc_attr($section); ?>channel_id]"
+                                    class="channel-dropdown">
+                                <option value="<?php echo esc_attr($single_channel['Number']); ?>" selected>
+                                    <?php echo esc_html($single_channel['Number']); ?>
+                                </option>
+                            </select>
+                        </td>
+                    </tr>
+            <!-- Dynamic Sections -->
+            <?php foreach ($sections as $section): ?>
+                <h3 class="title"><?php echo esc_html(ucfirst(str_replace('_', ' ', $section))); ?></h3>
+                <table class="form-table">
+                    <!-- Template Dropdown -->
+                    <!-- Channel Dropdown -->
+                  
+
+                    <!-- Template Dropdown -->
+                    <tr>
+                        <th><label for="<?php echo esc_attr($section . '_template'); ?>"><?php esc_html_e('Template', 'whatsapp-plugin'); ?></label></th>
+                        <td>
+                            <select id="<?php echo esc_attr($section . '_template'); ?>"
+                                    name="whatsapp_settings[<?php echo esc_attr($section); ?>_template]">
+                                <option value=""><?php esc_html_e('Select Template', 'whatsapp-plugin'); ?></option>
+                                <?php foreach ($templates as $template): ?>
+                                    <option value="<?php echo esc_attr($template['name']); ?>"
+                                        <?php selected(whatsapp_get_value($section . '_template'), $template['name']); ?>>
+                                        <?php echo esc_html($template['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                    </tr>
+
+                    <!-- Message Textarea -->
+                    <tr>
+                        <th><label for="<?php echo esc_attr($section . '_message'); ?>"><?php esc_html_e('Message', 'whatsapp-plugin'); ?></label></th>
+                        <td>
+                            <textarea id="<?php echo esc_attr($section . '_message'); ?>"
+                                      name="whatsapp_settings[<?php echo esc_attr($section); ?>_message]"
+                                      rows="8" cols="50" class="message-textarea">
+                                <?php echo esc_textarea(whatsapp_get_value($section . '_message')); ?>
+                            </textarea>
+                        </td>
+                    </tr>
+                </table>
+            <?php endforeach; ?>
+        </form>
+    </div>
+    <?php
+}
+
+
+function whatsapp_enqueue_scripts($hook)
+{
+    if ($hook !== 'toplevel_page_manage-whatsapp-config') {
+        return;
+    }
+
+    // Enqueue the script
+    wp_enqueue_script(
+        'whatsapp-admin',
+        plugin_dir_url(__FILE__) . 'script.js',
+        ['jquery'],
+        null,
+        true
+    );
+
+    // Fetch templates dynamically or pass an empty array if not available
+    $options = get_option('whatsapp_settings', []);
+    $templates = [];
+    $api_key = $options['api_key'] ?? '';
+    $api_url = $options['api_url'] ?? '';
+
+    if (!empty($api_key) && !empty($api_url)) {
+        try {
+            $client = new \GuzzleHttp\Client();
+            $headers = ['Authorization' => 'Bearer ' . $api_key];
+
+            // Fetch templates
+            $response = $client->get($api_url . '/api/v1.0/templates', ['headers' => $headers]);
+            $templates = json_decode($response->getBody(), true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception('Error decoding templates response: ' . json_last_error_msg());
+            }
+        } catch (Exception $e) {
+            // error_log('Failed to fetch templates: ' . $e->getMessage());
         }
-    });
+    }
 
-    // Update message and channel ID when a template is selected
-    templateNameDropdown.on('change', function () {
-        const selectedOption = $(this).find(':selected');
-        const components = selectedOption.data('components');
-        const id = selectedOption.data('id');
+    // Localize the script with AJAX URL, nonce, and templates
+    wp_localize_script('whatsapp-admin', 'custom_ajax_object', [
+        'ajaxurl' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('fetch_template_nonce'),
+        'templates' => $templates,
+    ]);
+}
+add_action('admin_enqueue_scripts', 'whatsapp_enqueue_scripts');
 
-        // Populate the message textarea
-        messageTextarea.val('');
-        if (components) {
-            let messageBody = '';
-            components.forEach(component => {
-                if (component.type === 'BODY' && component.text) {
-                    messageBody += component.text + "\n";
-                }
-            });
-            messageTextarea.val(messageBody.trim());
-        }
 
-        // Populate the Channel ID dropdown
-        channelIdDropdown.empty().append('<option value="">' + '<?php _e('Select Channel ID', 'whatsapp-plugin'); ?>' + '</option>');
-        if (id) {
-            channelIdDropdown.append('<option value="' + id + '">' + id + '</option>');
-        }
-    });
+// Register settings
+function whatsapp_register_settings()
+{
+    register_setting('whatsapp_settings_group', 'whatsapp_settings');
 
-    // Dynamically hide/show Template Configuration section based on API key and URL inputs
-    $('#api_key, #api_url').on('change', function() {
-        const apiKey = $('#api_key').val();
-        const apiUrl = $('#api_url').val();
+    add_settings_section(
+        'whatsapp_main_settings', // Section ID
+        __('Main Settings', 'whatsapp-plugin'), // Section title
+        function () {
+            echo '<p>' . esc_html__('Configure your WhatsApp settings below.', 'whatsapp-plugin') . '</p>';
+        },
+        'whatsapp-settings' // Page slug
+    );
 
-        if (apiKey && apiUrl) {
-            templateConfigTitle.show();
-            templateConfigTable.show();
-        } else {
-            templateConfigTitle.hide();
-            templateConfigTable.hide();
-        }
-    });
+    add_settings_field(
+        'api_key',
+        __('API Key', 'whatsapp-plugin'),
+        function () {
+            $options = get_option('whatsapp_settings');
+            ?>
+            <input type="text" id="api_key" name="whatsapp_settings[api_key]" value="<?php echo esc_attr($options['api_key'] ?? ''); ?>" />
+            <?php
+        },
+        'whatsapp-settings',
+        'whatsapp_main_settings'
+    );
 
-    // Fetch the OTP enable setting from the server (use the same method you are using to fetch settings)
-    const enableOtp = <?php echo json_encode(get_option('whatsapp_settings')['enable_otp']); ?>;
+    add_settings_field(
+        'api_url',
+        __('API URL', 'whatsapp-plugin'),
+        function () {
+            $options = get_option('whatsapp_settings');
+            ?>
+            <input type="text" id="api_url" name="whatsapp_settings[api_url]" value="<?php echo esc_attr($options['api_url'] ?? ''); ?>" />
+            <?php
+        },
+        'whatsapp-settings',
+        'whatsapp_main_settings'
+    );
 
-    // Always show the OTP section, regardless of checkbox state
-    otpSection.show();
-
-    // Optionally, toggle the contents inside the OTP section based on the checkbox state
-    $('#enable_otp').on('change', function() {
-        if ($(this).prop('checked')) {
-            // If checked, you can add any additional logic if needed
-            console.log('OTP enabled');
-        } else {
-            // If unchecked, you can handle any changes if required
-            console.log('OTP disabled');
-        }
-    });
-});
-</script>
-
+    add_settings_field(
+        'enable_otp',
+        __('Enable OTP Feature', 'whatsapp-plugin'),
+        function () {
+            $options = get_option('whatsapp_settings');
+            ?>
+            <input type="checkbox" name="whatsapp_settings[enable_otp]" value="1" <?php checked($options['enable_otp'] ?? '', '1'); ?> />
+            <span><?php esc_html_e('Check to enable OTP feature.', 'whatsapp-plugin'); ?></span>
+            <?php
+        },
+        'whatsapp-settings',
+        'whatsapp_main_settings'
+    );
+}
+add_action('admin_init', 'whatsapp_register_settings');

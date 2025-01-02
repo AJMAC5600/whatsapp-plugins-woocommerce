@@ -1,36 +1,45 @@
 <?php
-if (!defined('ABSPATH')) exit;
+if (!defined('ABSPATH'))
+    exit;
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
 // Section 1: Load Text Domain for Localization
 add_action('plugins_loaded', 'whatsapp_plugin_load_textdomain');
-function whatsapp_plugin_load_textdomain() {
+function whatsapp_plugin_load_textdomain()
+{
     load_plugin_textdomain('whatsapp-plugin', false, dirname(plugin_basename(__FILE__)) . '/languages');
 }
 
 // Section 2: Add Settings Page to Admin Menu
 add_action('admin_menu', 'whatsapp_admin_menu', 20);
-function whatsapp_admin_menu() {
-    function whatsapp_tab() {
+function whatsapp_admin_menu()
+{
+    function whatsapp_tab()
+    {
         include 'settings-page.php'; // Load the settings page
     }
 
-    add_menu_page(
-        __('WhatsApp Config', 'whatsapp-plugin'), // Page title
-        __('WhatsApp Config', 'whatsapp-plugin'), // Menu title
-        'manage_options',
-        'manage-whatsapp-config',
-        'whatsapp_tab',
-        '',
-        8
-    );
+    // add_menu_page(
+    //     __('WhatsApp Config', 'whatsapp-plugin'), // Page title
+    //     __('WhatsApp Config', 'whatsapp-plugin'), // Menu title
+    //     'manage_options',
+    //     'manage-whatsapp-config',
+    //     'whatsapp_tab',
+    //     '',
+    //     8
+    // );
 }
+add_action('admin_menu', function () {
+    error_log('admin_menu hook is working!');
+});
 
 // Section 3: Register Settings Groups
 add_action('admin_init', 'register_whatsapp_settings');
-function register_whatsapp_settings() {
+function register_whatsapp_settings()
+{
+    error_log('i am working');
     register_setting('whatsapp_settings_group', 'whatsapp_settings');
     register_setting('whatsapp_template_settings_group', 'whatsapp_template_settings', [
         'type' => 'array',
@@ -38,13 +47,15 @@ function register_whatsapp_settings() {
     ]);
 }
 
-function is_otp_enabled() {
+function is_otp_enabled()
+{
     $settings = get_option('whatsapp_settings', []);
     return isset($settings['enable_otp']) && $settings['enable_otp'] === '1';
 }
 
 // Sanitization callback for template settings
-function sanitize_whatsapp_template_settings($input) {
+function sanitize_whatsapp_template_settings($input)
+{
     $output = [];
     if (isset($input['channel_id'])) {
         $output['channel_id'] = sanitize_text_field($input['channel_id']);
@@ -63,13 +74,20 @@ function sanitize_whatsapp_template_settings($input) {
 
 // Section 4: Utility Function to Fetch WhatsApp Field
 $whatsapp_settings = get_option('whatsapp_settings');
-function whatsapp_field($key) {
+function whatsapp_field($key)
+{
     global $whatsapp_settings;
     return isset($whatsapp_settings[$key]) ? $whatsapp_settings[$key] : '';
 }
+// error_log('whatsapp_field: ' . whatsapp_field('order_book_message'));
+
+
+
+
 
 // Section 5: WhatsApp API Integration Functions
-function whatsapp_send_message_via_api($phone, $template_name, $language_code, $header_text, $body_text, $is_otp = false, $otp_code = '') {
+function whatsapp_send_message_via_api($phone, $template_name = '', $language_code = '', $header_text = '', $body_text = '', $is_otp = false, $otp_code = '', $json_data = null)
+{
     $api_key = whatsapp_field('api_key');
     $channel_id = whatsapp_field('channel_id');
     $api_url = whatsapp_field('api_url');
@@ -78,84 +96,31 @@ function whatsapp_send_message_via_api($phone, $template_name, $language_code, $
         error_log(__('WhatsApp API credentials or domain missing.', 'whatsapp-plugin'));
         return false;
     }
-    
-    // Prepare the URL for sending the message
-    $url = "$api_url/api/v1.0/messages/send-template/919833533311";
 
-    // Initialize request body
+    // Prepare the URL for sending the message
+    $url = "$api_url/api/v1.0/messages/send-template/" . $channel_id;
+
     $body = [];
 
-    // If it's an OTP message
-    if ($is_otp) {
-        $body = [
-            'messaging_product' => 'whatsapp',
-            'recipient_type' => 'individual',
-            'to' => '91'.$phone,
-            'type' => 'template',
-            'template' => [
-                'name' => 'test_auth',
-                'language' => [
-                    'code' => 'en_US',
-                ],
-                'components' => [
-                    [
-                        'type' => 'body',
-                        'parameters' => [
-                            [
-                                'type' => 'text',
-                                'text' => $otp_code
-                            ],
-                        ],
-                    ],
-                    [
-                        'type' => 'button',
-                        'parameters' => [
-                            [
-                                'type' => 'text',
-                                'text' => $otp_code
-                            ],
-                        ],
-                        'sub_type' => 'url',
-                        'index' => '0',
-                    ],
-                ],
-            ],
-        ];
+    // If JSON data is provided, use it to construct the body
+    if ($json_data !== null) {
+        $decoded_data = json_decode($json_data);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log(__('Invalid JSON data provided: ', 'whatsapp-plugin') . json_last_error_msg());
+            return false;
+        }
+
+        $body = $decoded_data;
+        $body->to = '91' . $phone;
+        error_log(print_r(json_encode($body), true));
+    } elseif ($is_otp) {
+        $body = build_otp_body($phone, $otp_code);
     } else {
-        $body = [
-            'messaging_product' => 'whatsapp',
-            'recipient_type' => 'individual',
-            'to' => $phone,
-            'type' => 'template',
-            'template' => [
-                'name' => $template_name,
-                'language' => [
-                    'code' => $language_code,
-                ],
-                'components' => [
-                    [
-                        'type' => 'header',
-                        'parameters' => [
-                            [
-                                'type' => 'text',
-                                'text' => $header_text,
-                            ],
-                        ],
-                    ],
-                    [
-                        'type' => 'body',
-                        'parameters' => [
-                            [
-                                'type' => 'text',
-                                'text' => $body_text,
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ];
+        $body = build_standard_message_body($phone, $template_name, $language_code, $header_text, $body_text);
     }
 
+    // Send the request
     $response = wp_remote_post($url, [
         'headers' => [
             'Authorization' => 'Bearer ' . $api_key,
@@ -171,18 +136,96 @@ function whatsapp_send_message_via_api($phone, $template_name, $language_code, $
     }
 
     $response_body = wp_remote_retrieve_body($response);
-    $decoded_body = json_decode($response_body, true);
+    $decoded_response = json_decode($response_body, true);
 
-    if (isset($decoded_body['error'])) {
-        error_log(__('WhatsApp API Error: ', 'whatsapp-plugin') . $decoded_body['error']['message']);
+    if (isset($decoded_response['error'])) {
+        error_log(__('WhatsApp API Error: ', 'whatsapp-plugin') . $decoded_response['error']['message']);
         return false;
     }
 
     return true;
 }
 
+// Helper functions for body construction
+function build_otp_body($phone, $otp_code)
+{
+    return [
+        'messaging_product' => 'whatsapp',
+        'recipient_type' => 'individual',
+        'to' => '91' . $phone,
+        'type' => 'template',
+        'template' => [
+            'name' => 'test_auth',
+            'language' => [
+                'code' => 'en_US',
+            ],
+            'components' => [
+                [
+                    'type' => 'body',
+                    'parameters' => [
+                        [
+                            'type' => 'text',
+                            'text' => $otp_code
+                        ],
+                    ],
+                ],
+                [
+                    'type' => 'button',
+                    'parameters' => [
+                        [
+                            'type' => 'text',
+                            'text' => $otp_code
+                        ],
+                    ],
+                    'sub_type' => 'url',
+                    'index' => '0',
+                ],
+            ],
+        ],
+    ];
+}
+
+function build_standard_message_body($phone, $template_name, $language_code, $header_text, $body_text)
+{
+    return [
+        'messaging_product' => 'whatsapp',
+        'recipient_type' => 'individual',
+        'to' => $phone,
+        'type' => 'template',
+        'template' => [
+            'name' => $template_name,
+            'language' => [
+                'code' => $language_code,
+            ],
+            'components' => [
+                [
+                    'type' => 'header',
+                    'parameters' => [
+                        [
+                            'type' => 'text',
+                            'text' => $header_text,
+                        ],
+                    ],
+                ],
+                [
+                    'type' => 'body',
+                    'parameters' => [
+                        [
+                            'type' => 'text',
+                            'text' => $body_text,
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ];
+}
+
+
+
 // Section 6: WooCommerce Registration - Add Phone Number and OTP Fields
-function add_phone_number_otp_fields_to_registration() {
+function add_phone_number_otp_fields_to_registration()
+{
     if (!is_otp_enabled()) {
         // Skip OTP validation if the feature is disabled
         return;
@@ -191,7 +234,8 @@ function add_phone_number_otp_fields_to_registration() {
     ?>
     <p class="form-row form-row-wide">
         <label for="reg_phone_number"><?php _e('Phone Number', 'whatsapp-plugin'); ?></label>
-        <input type="text" class="input-text" name="phone_number" id="reg_phone_number" value="<?php if (!empty($_POST['phone_number'])) echo esc_attr($_POST['phone_number']); ?>" required />
+        <input type="text" class="input-text" name="phone_number" id="reg_phone_number" value="<?php if (!empty($_POST['phone_number']))
+            echo esc_attr($_POST['phone_number']); ?>" required />
     </p>
 
     <p class="form-row form-row-wide">
@@ -202,7 +246,8 @@ function add_phone_number_otp_fields_to_registration() {
     <?php
 }
 
-function add_phone_number_column_to_wc_customer_lookup() {
+function add_phone_number_column_to_wc_customer_lookup()
+{
     if (!is_otp_enabled()) {
         // Skip OTP validation if the feature is disabled
         return;
@@ -231,7 +276,7 @@ add_action('plugins_loaded', 'add_phone_number_column_to_wc_customer_lookup');
 
 
 // Hook into the WooCommerce registration process.
-add_action('woocommerce_created_customer', function($customer_id) {
+add_action('woocommerce_created_customer', function ($customer_id) {
     if (isset($_POST['email']) && !empty($_POST['email'])) {
         $email = sanitize_email($_POST['email']);
         // Save the email in the wp_usermeta table.
@@ -247,7 +292,8 @@ add_action('woocommerce_register_form', 'add_phone_number_otp_fields_to_registra
  * @param int $customer_id The customer ID.
  * @param string $phone_number The phone number to save.
  */
-function store_phone_number_in_wc_customer_lookup($customer_id, $phone_number) {
+function store_phone_number_in_wc_customer_lookup($customer_id, $phone_number)
+{
     if (!is_otp_enabled()) {
         // Skip OTP validation if the feature is disabled
         return;
@@ -280,7 +326,7 @@ function store_phone_number_in_wc_customer_lookup($customer_id, $phone_number) {
 }
 
 // Hook into the WooCommerce registration process.
-add_action('woocommerce_created_customer', function($customer_id) {
+add_action('woocommerce_created_customer', function ($customer_id) {
     if (isset($_POST['phone_number']) && !empty($_POST['phone_number'])) {
         $phone_number = sanitize_text_field($_POST['phone_number']);
         store_phone_number_in_wc_customer_lookup($customer_id, $phone_number);
@@ -289,7 +335,8 @@ add_action('woocommerce_created_customer', function($customer_id) {
 
 
 
-function activate_whatsapp_plugin() {
+function activate_whatsapp_plugin()
+{
     add_phone_number_column_to_wc_customer_lookup();
 }
 register_activation_hook(__FILE__, 'activate_whatsapp_plugin');
@@ -297,7 +344,8 @@ register_activation_hook(__FILE__, 'activate_whatsapp_plugin');
 
 
 // Section 7: Validate OTP and Phone Number during Registration
-function validate_phone_number_and_otp($username, $email, $validation_errors) {
+function validate_phone_number_and_otp($username, $email, $validation_errors)
+{
     if (!is_otp_enabled()) {
         // Skip OTP validation if the feature is disabled
         return;
@@ -332,7 +380,7 @@ function validate_phone_number_and_otp($username, $email, $validation_errors) {
 add_filter('woocommerce_register_post', 'validate_phone_number_and_otp', 10, 3);
 
 // Hook into the WooCommerce registration process.
-add_action('woocommerce_created_customer', function($customer_id) {
+add_action('woocommerce_created_customer', function ($customer_id) {
     if (isset($_POST['phone_number']) && !empty($_POST['phone_number'])) {
         $phone_number = sanitize_text_field($_POST['phone_number']);
 
@@ -341,7 +389,8 @@ add_action('woocommerce_created_customer', function($customer_id) {
     }
 });
 // Add password fields to WooCommerce registration form
-function add_password_fields_to_registration() {
+function add_password_fields_to_registration()
+{
     if (!is_otp_enabled()) {
         // Skip OTP validation if the feature is disabled
         return;
@@ -353,7 +402,8 @@ function add_password_fields_to_registration() {
     </p>
 
     <p class="form-row form-row-wide">
-        <label for="reg_password_confirm"><?php _e('Confirm Password', 'woocommerce'); ?> <span class="required">*</span></label>
+        <label for="reg_password_confirm"><?php _e('Confirm Password', 'woocommerce'); ?> <span
+                class="required">*</span></label>
         <input type="password" class="input-text" name="password_confirm" id="reg_password_confirm" required />
     </p>
     <?php
@@ -361,7 +411,8 @@ function add_password_fields_to_registration() {
 add_action('woocommerce_register_form', 'add_password_fields_to_registration');
 
 // Validate password fields during registration
-function validate_password_fields($username, $email, $validation_errors) {
+function validate_password_fields($username, $email, $validation_errors)
+{
     if (!is_otp_enabled()) {
         // Skip OTP validation if the feature is disabled
         return;
@@ -386,7 +437,8 @@ function validate_password_fields($username, $email, $validation_errors) {
 add_filter('woocommerce_register_post', 'validate_password_fields', 10, 3);
 
 // Save user password during registration
-function save_password_during_registration($customer_id) {
+function save_password_during_registration($customer_id)
+{
     if (!is_otp_enabled()) {
         // Skip OTP validation if the feature is disabled
         return;
@@ -401,7 +453,8 @@ add_action('woocommerce_created_customer', 'save_password_during_registration');
 // Add OTP field dynamically to WooCommerce login form
 // Add OTP field to WooCommerce login form
 add_action('woocommerce_login_form', 'add_phone_number_otp_field_to_login');
-function add_phone_number_otp_field_to_login() {
+function add_phone_number_otp_field_to_login()
+{
     if (!is_otp_enabled()) {
         // Skip OTP validation if the feature is disabled
         return;
@@ -421,7 +474,8 @@ function add_phone_number_otp_field_to_login() {
 add_action('wp_ajax_send_login_otp', 'send_login_otp_via_ajax');
 add_action('wp_ajax_nopriv_send_login_otp', 'send_login_otp_via_ajax');
 
-function send_login_otp_via_ajax() {
+function send_login_otp_via_ajax()
+{
     if (!is_otp_enabled()) {
         // Skip OTP validation if the feature is disabled
         return;
@@ -453,7 +507,7 @@ function send_login_otp_via_ajax() {
             if ($phone_number) {
                 // Ensure phone number has the correct prefix
                 if (substr($phone_number, 0, 1) !== '+') {
-                    $phone_number =  $phone_number;
+                    $phone_number = $phone_number;
                 }
 
                 error_log("Phone Number with Prefix: " . $phone_number);
@@ -497,7 +551,8 @@ function send_login_otp_via_ajax() {
 
 // Validate OTP during login
 add_action('wp_authenticate', 'validate_login_otp', 10, 2);
-function validate_login_otp($username, $password) {
+function validate_login_otp($username, $password)
+{
     if (!is_otp_enabled()) {
         // Skip OTP validation if the feature is disabled
         return;
@@ -529,7 +584,8 @@ function validate_login_otp($username, $password) {
 // Handle OTP sending for other forms via AJAX
 add_action('wp_ajax_send_otp', 'send_otp_via_ajax');
 add_action('wp_ajax_nopriv_send_otp', 'send_otp_via_ajax');
-function send_otp_via_ajax() {
+function send_otp_via_ajax()
+{
     if (!is_otp_enabled()) {
         // Skip OTP validation if the feature is disabled
         return;
@@ -565,7 +621,8 @@ function send_otp_via_ajax() {
 
 
 // Enqueue script on the frontend
-function enqueue_whatsapp_otp_script() {
+function enqueue_whatsapp_otp_script()
+{
     if (!is_otp_enabled()) {
         // Skip OTP validation if the feature is disabled
         return;
@@ -593,79 +650,232 @@ add_action('wp_enqueue_scripts', 'enqueue_whatsapp_otp_script');
 // Section 6: WooCommerce Event Handlers
 // Order Placement
 add_action('woocommerce_thankyou', 'send_order_confirmation_whatsapp', 10, 1);
-function send_order_confirmation_whatsapp($order_id) {
-    if (!$order_id) return;
+function send_order_confirmation_whatsapp($order_id)
+{
+    // Validate the order ID
+    if (!$order_id || !is_numeric($order_id)) {
+        error_log(__('Invalid order ID provided.', 'whatsapp-plugin'));
+        return;
+    }
 
+    // Retrieve the order
     $order = wc_get_order($order_id);
 
-    whatsapp_send_message_via_api(
-        $order->get_billing_phone(),
-        'test_vikas',
-        'en',
-        __('Order Confirmation', 'whatsapp-plugin'),
-        sprintf(__('Thank you for your order #%s. We will process it soon.', 'whatsapp-plugin'), $order->get_order_number())
-    );
+    // Ensure the order object is valid
+    if (!$order || !is_a($order, 'WC_Order')) {
+        error_log(sprintf(__('Order not found or invalid for ID %s.', 'whatsapp-plugin'), $order_id));
+        return;
+    }
+
+    // Get the billing phone number
+    $billing_phone = $order->get_billing_phone();
+    error_log("Billing Phone: " . $billing_phone);
+
+    // Ensure a valid phone number is available
+    if (empty($billing_phone)) {
+        error_log(sprintf(__('No billing phone number found for order ID %s.', 'whatsapp-plugin'), $order_id));
+        return;
+    }
+
+    // Fetch the JSON data for the order confirmation
+    $json_data = whatsapp_field('order_book_message');
+
+    if (!empty($json_data)) {
+        // Call the WhatsApp API with the provided JSON data
+        $result = whatsapp_send_message_via_api(
+            $billing_phone,
+            null, // Template name is not needed when using JSON
+            null, // Language code is not needed when using JSON
+            null, // Header text is not needed when using JSON
+            null, // Body text is not needed when using JSON
+            false, // Not an OTP
+            '',    // OTP code is not needed
+            $json_data // Pass the JSON data
+        );
+
+        // Log the result
+        if ($result) {
+            error_log(sprintf(__('WhatsApp message sent successfully for order ID %s.', 'whatsapp-plugin'), $order_id));
+        } else {
+            error_log(sprintf(__('Failed to send WhatsApp message for order ID %s.', 'whatsapp-plugin'), $order_id));
+        }
+    } else {
+        error_log(__('Order book message JSON is empty.', 'whatsapp-plugin'));
+    }
 }
+
 
 // Order Cancellation
 add_action('woocommerce_order_status_cancelled', 'send_order_cancellation_whatsapp', 10, 1);
-function send_order_cancellation_whatsapp($order_id) {
-    if (!$order_id) return;
+function send_order_cancellation_whatsapp($order_id)
+{
+    // Validate the order ID
+    if (!$order_id || !is_numeric($order_id)) {
+        error_log(__('Invalid order ID provided.', 'whatsapp-plugin'));
+        return;
+    }
 
+    // Retrieve the order
     $order = wc_get_order($order_id);
 
-    whatsapp_send_message_via_api(
-        $order->get_billing_phone(),
-        'order_cancellation',
-        'en',
-        __('Order Cancellation', 'whatsapp-plugin'),
-        sprintf(__('We regret to inform you that your order #%s has been canceled.', 'whatsapp-plugin'), $order->get_order_number())
-    );
+    // Ensure the order object is valid
+    if (!$order || !is_a($order, 'WC_Order')) {
+        error_log(sprintf(__('Order not found or invalid for ID %s.', 'whatsapp-plugin'), $order_id));
+        return;
+    }
+
+    // Get the billing phone number
+    $billing_phone = $order->get_billing_phone();
+    error_log("Billing Phone: " . $billing_phone);
+
+    // Ensure a valid phone number is available
+    if (empty($billing_phone)) {
+        error_log(sprintf(__('No billing phone number found for order ID %s.', 'whatsapp-plugin'), $order_id));
+        return;
+    }
+
+    // Fetch the JSON data for the order confirmation
+    $json_data = whatsapp_field('order_cancellation_message');
+
+    if (!empty($json_data)) {
+        // Call the WhatsApp API with the provided JSON data
+        $result = whatsapp_send_message_via_api(
+            $billing_phone,
+            null, // Template name is not needed when using JSON
+            null, // Language code is not needed when using JSON
+            null, // Header text is not needed when using JSON
+            null, // Body text is not needed when using JSON
+            false, // Not an OTP
+            '',    // OTP code is not needed
+            $json_data // Pass the JSON data
+        );
+
+        // Log the result
+        if ($result) {
+            error_log(sprintf(__('WhatsApp message sent successfully for order ID %s.', 'whatsapp-plugin'), $order_id));
+        } else {
+            error_log(sprintf(__('Failed to send WhatsApp message for order ID %s.', 'whatsapp-plugin'), $order_id));
+        }
+    } else {
+        error_log(__('Order book message JSON is empty.', 'whatsapp-plugin'));
+    }
 }
 
 // Order Status Changes
 add_action('woocommerce_order_status_changed', 'send_order_status_update_whatsapp', 10, 4);
-function send_order_status_update_whatsapp($order_id, $old_status, $new_status, $order) {
-    if (!$order_id) return;
+function send_order_status_update_whatsapp($order_id, $old_status, $new_status, $order)
+{
+    // Validate the order ID
+    if (!$order_id || !is_numeric($order_id)) {
+        error_log(__('Invalid order ID provided.', 'whatsapp-plugin'));
+        return;
+    }
 
-    $phone = $order->get_billing_phone();
-    $status_messages = [
-        'processing' => __('Your order is now being processed. We will notify you when it is shipped.', 'whatsapp-plugin'),
-        'completed'  => __('Your order has been completed. Thank you for shopping with us!', 'whatsapp-plugin'),
-        'on-hold'    => __('Your order is on hold. Please contact us for more details.', 'whatsapp-plugin'),
-        'refunded'   => __('Your order has been refunded. Please check your payment method for updates.', 'whatsapp-plugin'),
-    ];
+    // Retrieve the order
+    $order = wc_get_order($order_id);
 
-    if (isset($status_messages[$new_status])) {
-        whatsapp_send_message_via_api(
-            $phone,
-            'order_status_update',
-            'en',
-            __('Order Status Update', 'whatsapp-plugin'),
-            sprintf(__('Order #%s: %s', 'whatsapp-plugin'), $order->get_order_number(), $status_messages[$new_status])
+    // Ensure the order object is valid
+    if (!$order || !is_a($order, 'WC_Order')) {
+        error_log(sprintf(__('Order not found or invalid for ID %s.', 'whatsapp-plugin'), $order_id));
+        return;
+    }
+
+    // Get the billing phone number
+    $billing_phone = $order->get_billing_phone();
+    error_log("Billing Phone: " . $billing_phone);
+
+    // Ensure a valid phone number is available
+    if (empty($billing_phone)) {
+        error_log(sprintf(__('No billing phone number found for order ID %s.', 'whatsapp-plugin'), $order_id));
+        return;
+    }
+
+    // Fetch the JSON data for the order confirmation
+    $json_data = whatsapp_field('order_status_change_message');
+
+    if (!empty($json_data)) {
+        // Call the WhatsApp API with the provided JSON data
+        $result = whatsapp_send_message_via_api(
+            $billing_phone,
+            null, // Template name is not needed when using JSON
+            null, // Language code is not needed when using JSON
+            null, // Header text is not needed when using JSON
+            null, // Body text is not needed when using JSON
+            false, // Not an OTP
+            '',    // OTP code is not needed
+            $json_data // Pass the JSON data
         );
+
+        // Log the result
+        if ($result) {
+            error_log(sprintf(__('WhatsApp message sent successfully for order ID %s.', 'whatsapp-plugin'), $order_id));
+        } else {
+            error_log(sprintf(__('Failed to send WhatsApp message for order ID %s.', 'whatsapp-plugin'), $order_id));
+        }
+    } else {
+        error_log(__('Order book message JSON is empty.', 'whatsapp-plugin'));
     }
 }
 
 // Custom Admin Notification
 add_action('woocommerce_order_status_completed', 'notify_admin_order_completed', 10, 1);
-function notify_admin_order_completed($order_id) {
-    if (!$order_id) return;
+function notify_admin_order_completed($order_id)
+{    // Validate the order ID
+    if (!$order_id || !is_numeric($order_id)) {
+        error_log(__('Invalid order ID provided.', 'whatsapp-plugin'));
+        return;
+    }
 
+    // Retrieve the order
     $order = wc_get_order($order_id);
 
-    whatsapp_send_message_via_api(
-        'admin_phone_number',
-        'admin_order_notification',
-        'en',
-        __('Order Completed Notification', 'whatsapp-plugin'),
-        sprintf(__('Order #%s has been marked as completed.', 'whatsapp-plugin'), $order->get_order_number())
-    );
+    // Ensure the order object is valid
+    if (!$order || !is_a($order, 'WC_Order')) {
+        error_log(sprintf(__('Order not found or invalid for ID %s.', 'whatsapp-plugin'), $order_id));
+        return;
+    }
+
+    // Get the billing phone number
+    $billing_phone = $order->get_billing_phone();
+    error_log("Billing Phone: " . $billing_phone);
+
+    // Ensure a valid phone number is available
+    if (empty($billing_phone)) {
+        error_log(sprintf(__('No billing phone number found for order ID %s.', 'whatsapp-plugin'), $order_id));
+        return;
+    }
+
+    // Fetch the JSON data for the order confirmation
+    $json_data = whatsapp_field('order_success_message');
+
+    if (!empty($json_data)) {
+        // Call the WhatsApp API with the provided JSON data
+        $result = whatsapp_send_message_via_api(
+            $billing_phone,
+            null, // Template name is not needed when using JSON
+            null, // Language code is not needed when using JSON
+            null, // Header text is not needed when using JSON
+            null, // Body text is not needed when using JSON
+            false, // Not an OTP
+            '',    // OTP code is not needed
+            $json_data // Pass the JSON data
+        );
+
+        // Log the result
+        if ($result) {
+            error_log(sprintf(__('WhatsApp message sent successfully for order ID %s.', 'whatsapp-plugin'), $order_id));
+        } else {
+            error_log(sprintf(__('Failed to send WhatsApp message for order ID %s.', 'whatsapp-plugin'), $order_id));
+        }
+    } else {
+        error_log(__('Order book message JSON is empty.', 'whatsapp-plugin'));
+    }
 }
 
 // Section 7: Fetch Plugin Settings with AJAX
 add_action('wp_ajax_fetch_whatsapp_channels', 'fetch_whatsapp_channels');
-function fetch_whatsapp_channels() {
+function fetch_whatsapp_channels()
+{
     if (!isset($_POST['api_key']) || !isset($_POST['api_url'])) {
         wp_send_json_error(['message' => __('Invalid API credentials.', 'whatsapp-plugin')]);
         return;
@@ -677,7 +887,7 @@ function fetch_whatsapp_channels() {
     $response = wp_remote_get("$api_url/v1/channels", [
         'headers' => [
             'Authorization' => 'Bearer ' . $api_key,
-            'Content-Type'  => 'application/json',
+            'Content-Type' => 'application/json',
         ],
     ]);
 
