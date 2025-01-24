@@ -149,40 +149,47 @@ function whatsapp_send_message_via_api($phone, $template_name = '', $language_co
 // Helper functions for body construction
 function build_otp_body($phone, $otp_code)
 {
-    return [
-        'messaging_product' => 'whatsapp',
-        'recipient_type' => 'individual',
-        'to' => '91' . $phone,
-        'type' => 'template',
-        'template' => [
-            'name' => 'test_auth',
-            'language' => [
-                'code' => 'en_US',
-            ],
-            'components' => [
-                [
-                    'type' => 'body',
-                    'parameters' => [
-                        [
-                            'type' => 'text',
-                            'text' => $otp_code
-                        ],
-                    ],
-                ],
-                [
-                    'type' => 'button',
-                    'parameters' => [
-                        [
-                            'type' => 'text',
-                            'text' => $otp_code
-                        ],
-                    ],
-                    'sub_type' => 'url',
-                    'index' => '0',
-                ],
-            ],
-        ],
-    ];
+    // return [
+    //     'messaging_product' => 'whatsapp',
+    //     'recipient_type' => 'individual',
+    //     'to' => '91' . $phone,
+    //     'type' => 'template',
+    //     'template' => [
+    //         'name' => 'test_auth',
+    //         'language' => [
+    //             'code' => 'en_US',
+    //         ],
+    //         'components' => [
+    //             [
+    //                 'type' => 'body',
+    //                 'parameters' => [
+    //                     [
+    //                         'type' => 'text',
+    //                         'text' => $otp_code
+    //                     ],
+    //                 ],
+    //             ],
+    //             [
+    //                 'type' => 'button',
+    //                 'parameters' => [
+    //                     [
+    //                         'type' => 'text',
+    //                         'text' => $otp_code
+    //                     ],
+    //                 ],
+    //                 'sub_type' => 'url',
+    //                 'index' => '0',
+    //             ],
+    //         ],
+    //     ],
+    // ];
+error_log($otp_code);
+    $new_body = json_decode(whatsapp_field(auth_message), true);
+    $new_body['to'] = '91' . $phone;
+    $new_body['template']['components'][0]['parameters'][0]['text'] = $otp_code;
+    $new_body['template']['components'][1]['parameters'][0]['text'] = $otp_code;
+
+    return $new_body;
 }
 
 function build_standard_message_body($phone, $template_name, $language_code, $header_text, $body_text)
