@@ -184,7 +184,7 @@ function build_otp_body($phone, $otp_code)
     //     ],
     // ];
 error_log($otp_code);
-    $new_body = json_decode(whatsapp_field(auth_message), true);
+    $new_body = json_decode(whatsapp_field('auth_message'), true);
     $new_body['to'] = '91' . $phone;
     $new_body['template']['components'][0]['parameters'][0]['text'] = $otp_code;
     $new_body['template']['components'][1]['parameters'][0]['text'] = $otp_code;
