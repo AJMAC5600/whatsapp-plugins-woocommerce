@@ -217,9 +217,7 @@ function display_whatsapp_config_page()
         <h1><?php esc_html_e('WhatsApp Configuration', 'whatsapp-plugin'); ?></h1>
 
         <style>
-            textarea {
-                display: none;
-            }
+            
             .dynamic-variable{
                 display: flex;
                 gap: 20px;
