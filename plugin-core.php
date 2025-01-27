@@ -86,7 +86,7 @@ function whatsapp_field($key)
 
 
 // Section 5: WhatsApp API Integration Functions
-function whatsapp_send_message_via_api($phone, $template_name = '', $language_code = '', $header_text = '', $body_text = '', $is_otp = false, $otp_code = '', $json_data = null)
+function whatsapp_send_message_via_api($phone, $template_name = '', $language_code = '', $header_text = '', $body_text = '', $is_otp = false, $otp_code = '', $json_data = null, $order = null)
 {
     $api_key = whatsapp_field('api_key');
     $channel_id = whatsapp_field('channel_id');
@@ -104,7 +104,7 @@ function whatsapp_send_message_via_api($phone, $template_name = '', $language_co
 
     // If JSON data is provided, use it to construct the body
     if ($json_data !== null) {
-        $decoded_data = json_decode($json_data);
+        $decoded_data = json_decode($json_data, true);
         error_log(print_r($decoded_data, true));
         error_log("this was the json data");
         if (json_last_error() !== JSON_ERROR_NONE) {
@@ -112,15 +112,21 @@ function whatsapp_send_message_via_api($phone, $template_name = '', $language_co
             return false;
         }
 
+        if ($order) {
+            $decoded_data = replace_variables_in_json($decoded_data, $order);
+        }
+
         $body = $decoded_data;
-        $body->to = '91' . $phone;
+        $body['to'] = '91' . $phone;
         error_log(print_r(json_encode($body), true));
     } elseif ($is_otp) {
-        $body = build_otp_body($phone, $otp_code);
-        
+        $body = build_otp_message_body($phone, $otp_code);
     } else {
+        if ($order) {
+            $body_text = replace_variables($body_text, $order);
+            $header_text = replace_variables($header_text, $order);
+        }
         $body = build_standard_message_body($phone, $template_name, $language_code, $header_text, $body_text);
-        
     }
 
     // Send the request
@@ -147,6 +153,46 @@ function whatsapp_send_message_via_api($phone, $template_name = '', $language_co
     }
 
     return true;
+}
+
+// Helper function to replace variables in the message
+function replace_variables($text, $order)
+{
+    $variables = [
+        '%billing_first_name%' => $order->get_billing_first_name(),
+        '%billing_last_name%' => $order->get_billing_last_name(),
+        '%order_id%' => $order->get_id(),
+        '%order_total%' => $order->get_total(),
+        '{{Amount}}' => $order->get_total(), // Example for {{variable}} format
+        // Add more variables as needed
+    ];
+
+    foreach ($variables as $key => $value) {
+        $text = str_replace($key, $value, $text);
+    }
+
+    return $text;
+}
+
+// Helper function to replace variables in JSON data
+function replace_variables_in_json($data, $order)
+{
+    $variables = [
+        '%billing_first_name%' => $order->get_billing_first_name(),
+        '%billing_last_name%' => $order->get_billing_last_name(),
+        '%order_id%' => $order->get_id(),
+        '%order_total%' => $order->get_total(),
+        '{{Amount}}' => $order->get_total(), // Example for {{variable}} format
+        // Add more variables as needed
+    ];
+
+    array_walk_recursive($data, function (&$item) use ($variables) {
+        foreach ($variables as $key => $value) {
+            $item = str_replace($key, $value, $item);
+        }
+    });
+
+    return $data;
 }
 
 // Helper functions for body construction
@@ -694,7 +740,8 @@ function send_order_confirmation_whatsapp($order_id)
             null, // Body text is not needed when using JSON
             false, // Not an OTP
             '',    // OTP code is not needed
-            $json_data // Pass the JSON data
+            $json_data, // Pass the JSON data
+            $order // Pass the order object for variable replacement
         );
 
         // Log the result
@@ -752,7 +799,8 @@ function send_order_cancellation_whatsapp($order_id)
             null, // Body text is not needed when using JSON
             false, // Not an OTP
             '',    // OTP code is not needed
-            $json_data // Pass the JSON data
+            $json_data, // Pass the JSON data
+            $order // Pass the order object for variable replacement
         );
 
         // Log the result
@@ -808,7 +856,8 @@ function send_order_status_update_whatsapp($order_id, $old_status, $new_status, 
             null, // Body text is not needed when using JSON
             false, // Not an OTP
             '',    // OTP code is not needed
-            $json_data // Pass the JSON data
+            $json_data, // Pass the JSON data
+            $order // Pass the order object for variable replacement
         );
 
         // Log the result
@@ -863,7 +912,8 @@ function notify_admin_order_completed($order_id)
             null, // Body text is not needed when using JSON
             false, // Not an OTP
             '',    // OTP code is not needed
-            $json_data // Pass the JSON data
+            $json_data, // Pass the JSON data
+            $order // Pass the order object for variable replacement
         );
         
         // Log the result

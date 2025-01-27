@@ -202,6 +202,8 @@ if (!function_exists('register_whatsapp_config_page')) {
 // Render the settings page
 function display_whatsapp_config_page()
 {
+    $api_key = whatsapp_get_value('api_key');
+    $api_url = whatsapp_get_value('api_url');
     $single_channel = fetch_single_channel(); // Fetch a single channel dynamically
     $templates_and_channels = fetch_templates_and_channels();
     $templates = $templates_and_channels['templates']; // Assuming this function still fetches templates
@@ -217,7 +219,9 @@ function display_whatsapp_config_page()
         <h1><?php esc_html_e('WhatsApp Configuration', 'whatsapp-plugin'); ?></h1>
 
         <style>
-            
+            textarea {
+                display: none;
+            }
             .dynamic-variable{
                 display: flex;
                 gap: 20px;
@@ -228,6 +232,19 @@ function display_whatsapp_config_page()
                 gap: 10px;
                 padding: 10px;
             }
+            .variable-list {
+                margin-top: 10px;
+                padding: 10px;
+                background-color: #f1f1f1;
+                border: 1px solid #ccc;
+            }
+            .variable-list p {
+                margin: 0;
+                padding: 5px 0;
+            }
+            .hidden {
+                display: none;
+            }
         </style>
 
         <form method="post" action="options.php">
@@ -237,9 +254,17 @@ function display_whatsapp_config_page()
             do_settings_sections('whatsapp-settings');
             
             ?>
+            <div class="variable-list <?php echo empty($api_key) || empty($api_url) ? 'hidden' : ''; ?>">
+                <h3><?php esc_html_e('Available Variables', 'whatsapp-plugin'); ?></h3>
+                <p><?php esc_html_e('%billing_first_name% - Customer\'s first name', 'whatsapp-plugin'); ?></p>
+                <p><?php esc_html_e('%billing_last_name% - Customer\'s last name', 'whatsapp-plugin'); ?></p>
+                <p><?php esc_html_e('%order_id% - Order ID', 'whatsapp-plugin'); ?></p>
+                <p><?php esc_html_e('%order_total% - Order total amount', 'whatsapp-plugin'); ?></p>
+                <!-- Add more variables as needed -->
+            </div>
             <?php if (whatsapp_get_value('enable_otp')): ?>
-                <h3 class="title"><?php esc_html_e('Authentication Templates', 'whatsapp-plugin'); ?></h3>
-                <table class="form-table">
+                <h3 class="title <?php echo empty($api_key) || empty($api_url) ? 'hidden' : ''; ?>"><?php esc_html_e('Authentication Templates', 'whatsapp-plugin'); ?></h3>
+                <table class="form-table <?php echo empty($api_key) || empty($api_url) ? 'hidden' : ''; ?>">
                     <tr>
                         <th><label for="auth_template"><?php esc_html_e('Template', 'whatsapp-plugin'); ?></label></th>
                         <td>
@@ -281,8 +306,8 @@ function display_whatsapp_config_page()
                 </table>
             <?php endif; ?>
             <!-- Dynamic Sections -->
-            <h3 class="title"><?php esc_html_e('Channel', 'whatsapp-plugin'); ?></h3>
-            <table class="form-table">
+            <h3 class="title <?php echo empty($api_key) || empty($api_url) ? 'hidden' : ''; ?>"><?php esc_html_e('Channel', 'whatsapp-plugin'); ?></h3>
+            <table class="form-table <?php echo empty($api_key) || empty($api_url) ? 'hidden' : ''; ?>">
                 <tr>
                     <th><label for="channel_id"><?php esc_html_e('Channel Number', 'whatsapp-plugin'); ?></label></th>
                     <td>
@@ -296,8 +321,8 @@ function display_whatsapp_config_page()
                 </tr>
             </table>
             <?php foreach ($sections as $section): ?>
-                <h3 class="title"><?php echo esc_html(ucfirst(str_replace('_', ' ', $section))); ?></h3>
-                <table class="form-table">
+                <h3 class="title <?php echo empty($api_key) || empty($api_url) ? 'hidden' : ''; ?>"><?php echo esc_html(ucfirst(str_replace('_', ' ', $section))); ?></h3>
+                <table class="form-table <?php echo empty($api_key) || empty($api_url) ? 'hidden' : ''; ?>">
                       <!-- Category Dropdown -->
                       <tr>
                         <th><label for="<?php echo esc_attr($section . '_category'); ?>"><?php esc_html_e('Category', 'whatsapp-plugin'); ?></label></th>

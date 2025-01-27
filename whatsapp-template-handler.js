@@ -67,6 +67,13 @@
 
             // Components to process
             const componentTypes = ['header', 'body', 'button'];
+            const variables = {
+                '%billing_first_name%': 'Customer\'s first name',
+                '%billing_last_name%': 'Customer\'s last name',
+                '%order_id%': 'Order ID',
+                '%order_total%': 'Order total amount',
+                // Add more variables as needed
+            };
 
             componentTypes.forEach(componentType => {
                 const component = templateData.template.components.find(
@@ -85,18 +92,35 @@
                             .attr('for', inputId)
                             .text(`${capitalizeFirstLetter(componentType)} Text ${index + 1}:`);
                         
-                        const $input = $('<input>')
-                            .attr({
-                                type: 'text',
-                                id: inputId,
-                                name: inputName,
-                                placeholder: param.text || `Enter ${componentType} text`,
-                                value: param.text || ''
+                        if (componentType === 'body') {
+                            const $select = $('<select>')
+                                .attr({
+                                    id: inputId,
+                                    name: inputName
+                                })
+                                .append($('<option>').val('').text('Select Variable'));
+
+                            $.each(variables, function(key, description) {
+                                $select.append($('<option>').val(key).text(description));
                             });
 
-                        $inputGroup
-                            .append($label)
-                            .append($input);
+                            $inputGroup
+                                .append($label)
+                                .append($select);
+                        } else {
+                            const $input = $('<input>')
+                                .attr({
+                                    type: 'text',
+                                    id: inputId,
+                                    name: inputName,
+                                    placeholder: param.text || `Enter ${componentType} text`,
+                                    value: param.text || ''
+                                });
+
+                            $inputGroup
+                                .append($label)
+                                .append($input);
+                        }
 
                         $container.append($inputGroup);
                     });
