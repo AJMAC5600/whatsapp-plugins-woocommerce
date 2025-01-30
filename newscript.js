@@ -1,4 +1,4 @@
-jQuery(document).ready(function (jQuery) {
+jQuery(document).ready(function ($) {
     if (typeof custom_ajax_object === "undefined") {
         console.error("custom_ajax_object is not defined. Check your wp_localize_script implementation.");
         return;
@@ -25,7 +25,7 @@ jQuery(document).ready(function (jQuery) {
 
     const templates = custom_ajax_object.templates || [];
     const sections = ["order_book", "order_cancellation", "order_status_change", "order_success"];
-
+    persistTemplateSelection();
     sections.forEach((section) => {
         const $templateDropdown = jQuery(`#${section}_template`);
         const $categoryDropdown = jQuery(`#${section}_category`);
@@ -262,10 +262,238 @@ jQuery(document).ready(function (jQuery) {
             if (templateData) {
                 const updatedData = recreateJsonWithUpdatedValues(JSON.parse(templateData), section);
                 const newData = JSON.stringify(updatedData, null, 4);
+                
                 jQuery(`#${section}_message`).val(newData); // Remove existing data and add updated data to textarea
+                console.log(jQuery(`#${section}_message`).val()); // Log the updated data
+            }
+            const template = $(`#${section}_template`).val();
+            if (template) {
+                localStorage.setItem(`${section}_selected_template`, template);
             }
         });
     });
+    function persistTemplateSelection() {
+        sections.forEach(section => {
+            const $categoryDropdown = $(`#${section}_category`);
+            const $templateDropdown = $(`#${section}_template`);
+            
+            // Save selection when changed
+            $templateDropdown.on('change', function() {
+                const selectedTemplate = $(this).val();
+                localStorage.setItem(`${section}_selected_template`, selectedTemplate);
+            });
+
+            // Restore selection on page load
+            const savedTemplate = localStorage.getItem(`${section}_selected_template`);
+            if (savedTemplate) {
+                // First ensure category is selected
+                const templateOption = $templateDropdown.find(`option[value="${savedTemplate}"]`);
+                const category = templateOption.data('category');
+                if (category) {
+                    $categoryDropdown.val(category).trigger('change');
+                    
+                    // Wait for templates to load then set selected template
+                    setTimeout(() => {
+                        $templateDropdown.val(savedTemplate).trigger('change');
+                    }, 100);
+                }
+            }
+        });
+
+        // Handle OTP template persistence
+        const $authTemplate = $('#auth_template');
+        $authTemplate.on('change', function() {
+            localStorage.setItem('auth_selected_template', $(this).val());
+        });
+
+        const savedAuthTemplate = localStorage.getItem('auth_selected_template');
+        if (savedAuthTemplate) {
+            $authTemplate.val(savedAuthTemplate).trigger('change');
+        }
+    }
+    // Function to filter templates
+    // Replace the existing filterTemplatesByCategory function with:
+    function filterTemplatesByCategory(categoryDropdown, templateDropdown) {
+        const selectedCategory = categoryDropdown.val();
+        const section = categoryDropdown.attr('id').replace('_category', '');
+        
+        console.log('Filtering templates for:', {
+            section: section,
+            category: selectedCategory,
+            availableTemplates: templates
+        });
+    
+        // Clear and reset dropdown
+        templateDropdown.empty()
+            .append('<option value="">Select Template</option>');
+        
+        // Add templates for selected category
+        if (selectedCategory && templates.length > 0) {
+            templates.forEach(template => {
+                if (template.category === selectedCategory) {
+                    templateDropdown.append(
+                        `<option value="${template.name}" data-category="${template.category}">
+                            ${template.name}
+                        </option>`
+                    );
+                }
+            });
+        }
+    
+        // Initialize textarea if empty
+        const textarea = jQuery(`#${section}_message`);
+        if (!textarea.val().trim()) {
+            textarea.val(JSON.stringify({
+                template: {
+                    components: []
+                }
+            }, null, 2));
+        }
+    
+        console.log('Templates filtered:', {
+            selectedCategory: selectedCategory,
+            templateOptions: templateDropdown.find('option').length - 1
+        });
+    }
+    
+    // Replace the category change handler with:
+    sections.forEach(section => {
+        const categoryDropdown = jQuery(`#${section}_category`);
+        const templateDropdown = jQuery(`#${section}_template`);
+        
+        categoryDropdown.on('change', function() {
+            console.log('Category changed:', jQuery(this).val());
+            filterTemplatesByCategory(jQuery(this), templateDropdown);
+        });
+    
+        // Initial load if category is selected
+        if (categoryDropdown.val()) {
+            categoryDropdown.trigger('change');
+        }
+    });
+
+    // Event dropdown change event
+    jQuery('#event').change(function() {
+        var selectedEvent = jQuery(this).val();
+        jQuery('.dynamic-section').hide();
+        if (selectedEvent) {
+            jQuery('#section-' + selectedEvent).show();
+        }
+    });
+
+    // Category dropdown change event for each section
+    sections.forEach(function(section) {
+        jQuery('#' + section + '_category').change(function() {
+            var categoryDropdown = jQuery(this);
+            var templateDropdown = jQuery('#' + section + '_template');
+            
+            // Filter templates based on selected category
+            filterTemplatesByCategory(categoryDropdown, templateDropdown);
+
+            // Fetch template payload when a template is selected
+            templateDropdown.off('change').on('change', function() {
+                var templateName = jQuery(this).val();
+                var channelNumber = jQuery('#channel_id').val();
+
+                if (templateName && channelNumber) {
+                    jQuery.ajax({
+                        url: custom_ajax_object.ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'fetch_template_payload',
+                            template_name: templateName,
+                            channel_number: channelNumber,
+                            nonce: custom_ajax_object.nonce
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                // Display dynamic variables
+                                var section = categoryDropdown.attr('id').replace('_category', '');
+                                generateTemplateInputs(response.data, section);
+                            } else {
+                                console.error(response.data.message);
+                            }
+                        },
+                        error: function() {
+                            console.error('Error fetching template payload.');
+                        }
+                    });
+                }
+            });
+        });
+
+        // Optional: Trigger initial filtering on page load
+        (function() {
+            var categoryDropdown = jQuery('#' + section + '_category');
+            var templateDropdown = jQuery('#' + section + '_template');
+            
+            // If a category is already selected, filter templates
+            if (categoryDropdown.val()) {
+                filterTemplatesByCategory(categoryDropdown, templateDropdown);
+            }
+        })();
+    });
+
+    // Fetch template payload for OTP template selection
+    jQuery('#auth_template').on('change', function() {
+        var templateName = jQuery(this).val();
+        var channelNumber = jQuery('#channel_id').val();
+
+        if (templateName && channelNumber) {
+            jQuery.ajax({
+                url: custom_ajax_object.ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'fetch_template_payload',
+                    template_name: templateName,
+                    channel_number: channelNumber,
+                    nonce: custom_ajax_object.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Set the JSON data to the textarea
+                        jQuery('#auth_message').val(JSON.stringify(response.data, null, 4));
+                    } else {
+                        console.error(response.data.message);
+                    }
+                },
+                error: function() {
+                    console.error('Error fetching template payload.');
+                }
+            });
+        }
+    });
+
+    // Optional: Trigger initial filtering for OTP template on page load
+    (function() {
+        var templateDropdown = jQuery('#auth_template');
+        var templateName = templateDropdown.val();
+        var channelNumber = jQuery('#channel_id').val();
+
+        if (templateName && channelNumber) {
+            jQuery.ajax({
+                url: custom_ajax_object.ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'fetch_template_payload',
+                    template_name: templateName,
+                    channel_number: channelNumber,
+                    nonce: custom_ajax_object.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Set the JSON data to the textarea
+                        jQuery('#auth_message').val(JSON.stringify(response.data, null, 4));
+                    } else {
+                        console.error(response.data.message);
+                    }
+                },
+                error: function() {
+                    console.error('Error fetching template payload.');
+                }
+            });
+        }
+    })();
 });
 
 function fetchTemplatePayload(templateName, channelNumber, section) {
@@ -356,7 +584,7 @@ function recreateJsonWithUpdatedValues(templateData, section) {
                 let inputField;
                 if (componentType === 'body') {
                     inputField = document.querySelector(
-                        `#${componentType}-inputs-${section} select[name="${componentType}_${index}"]`
+                        `#body-inputs-${section} select[name="body_${index}"]`
                     );
                 } else {
                     inputField = document.querySelector(
