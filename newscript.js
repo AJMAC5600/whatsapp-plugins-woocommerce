@@ -120,15 +120,34 @@ jQuery(document).ready(function ($) {
         jQuery(`#button-content-${section}`).empty();
 
         // Variables for dropdown
-        const variables = {
-            '%billing_first_name%': 'Customer\'s first name',
-            '%billing_last_name%': 'Customer\'s last name',
+                const variables = {
+            // Order details
             '%order_id%': 'Order ID',
             '%order_total%': 'Order total amount',
-            '%billing_first_name% %billing_last_name%': 'Customer\'s full name',
-            // Add more variables as needed
+            '%order_subtotal%': 'Order subtotal amount',
+            '%order_currency%': 'Order currency',
+            '%order_status%': 'Order status', // Added order status
+            '{{Amount}}': 'Order total amount',
+            
+            // Customer details
+            '%billing_first_name%': 'Customer\'s first name',
+            '%billing_last_name%': 'Customer\'s last name',
+            '%billing_full_name%': 'Customer\'s full name',
+            '%billing_email%': 'Customer\'s email',
+            '%billing_phone%': 'Customer\'s phone',
+            
+            // Product details
+            '%product_list%': 'List of all products',
+            '%total_items%': 'Total number of items',
+            '%first_product_name%': 'First product name',
+            '%first_product_quantity%': 'First product quantity',
+            '%first_product_total%': 'First product total',
+            
+            // Single product variables
+            '%product_name%': 'Product name',
+            '%product_quantity%': 'Product quantity',
+            '%product_total%': 'Product total amount'
         };
-
         // Generate header inputs with value persistence
         const headerComponent = templateData.template.components.find(c => c.type === "header");
         if (headerComponent) {

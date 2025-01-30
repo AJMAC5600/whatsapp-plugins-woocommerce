@@ -248,6 +248,7 @@ function display_whatsapp_config_page()
             .hidden {
                 display: none;
             }
+            
         </style>
 
         <form method="post" action="options.php">
@@ -415,31 +416,21 @@ function display_whatsapp_config_page()
 <?php
 }
 
-function whatsapp_enqueue_scripts($hook)
-{
+function whatsapp_enqueue_scripts($hook) {
     if ($hook !== 'toplevel_page_manage-whatsapp-config') {
         return;
     }
 
-    // Enqueue the first script
-    wp_enqueue_script(
-        'whatsapp-admin',
-        plugin_dir_url(__FILE__) . 'script.js',
-        ['jquery'],
-        null,
-        true
-    );
-
-    // Enqueue the second script
+    // Enqueue main script
     wp_enqueue_script(
         'whatsapp-admin-new',
         plugin_dir_url(__FILE__) . 'newscript.js',
-        ['jquery', 'whatsapp-admin'], // Depend on the first script
+        ['jquery'],  // Only depend on jQuery
         null,
         true
     );
 
-    // Fetch templates dynamically or pass an empty array if not available
+    // Fetch templates dynamically
     $options = get_option('whatsapp_settings', []);
     $templates = [];
     $api_key = $options['api_key'] ?? '';
@@ -462,14 +453,12 @@ function whatsapp_enqueue_scripts($hook)
         }
     }
 
-    // Localize both scripts
-    wp_localize_script('whatsapp-admin', 'custom_ajax_object', [
+    // Localize script with data
+    wp_localize_script('whatsapp-admin-new', 'custom_ajax_object', [
         'ajaxurl' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('fetch_template_payload_nonce'),
         'templates' => $templates,
     ]);
-
-    
 }
 
 // Register settings

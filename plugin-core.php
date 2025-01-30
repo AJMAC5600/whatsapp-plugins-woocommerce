@@ -155,18 +155,68 @@ function whatsapp_send_message_via_api($phone, $template_name = '', $language_co
     return true;
 }
 
-// Helper function to replace variables in the message
-function replace_variables($text, $order)
-{
+
+function format_price($amount, $order) {
+    return number_format($amount, 2) . ' ' . $order->get_currency();
+}
+
+function replace_variables($text, $order) {
+    // Get all items from order
+    $items = $order->get_items();
+    $products = [];
+    $total_items = 0;
+    
+    // Process order items
+    foreach($items as $item) {
+        $products[] = [
+            'name' => $item->get_name(),
+            'quantity' => $item->get_quantity(),
+            'total' => $item->get_total()
+        ];
+        $total_items += $item->get_quantity();
+    }
+
+    // Build product lists
+    $product_list = '';
+    foreach($products as $product) {
+        $product_list .= sprintf(
+            "%s (Qty: %d) - %s\n",
+            $product['name'],
+            $product['quantity'],
+            format_price($product['total'], $order)
+        );
+    }
+
+    // Define all variables
     $variables = [
+        // Order details
+        '%order_id%' => $order->get_id(),
+        '%order_total%' => format_price($order->get_total(), $order),
+        '%order_subtotal%' => format_price($order->get_subtotal(), $order),
+        '%order_currency%' => $order->get_currency(),
+        '{{Amount}}' => format_price($order->get_total(), $order),
+        '%order_status%' => wc_get_order_status_name($order->get_status()), // Add order status
+        // Customer details
         '%billing_first_name%' => $order->get_billing_first_name(),
         '%billing_last_name%' => $order->get_billing_last_name(),
-        '%order_id%' => $order->get_id(),
-        '%order_total%' => $order->get_total(),
-        '{{Amount}}' => $order->get_total(), // Example for {{variable}} format
-        // Add more variables as needed
+        '%billing_full_name%' => $order->get_formatted_billing_full_name(),
+        '%billing_email%' => $order->get_billing_email(),
+        '%billing_phone%' => $order->get_billing_phone(),
+        
+        // Product details
+        '%product_list%' => $product_list,
+        '%total_items%' => $total_items,
+        '%first_product_name%' => !empty($products) ? $products[0]['name'] : '',
+        '%first_product_quantity%' => !empty($products) ? $products[0]['quantity'] : '',
+        '%first_product_total%' => !empty($products) ? format_price($products[0]['total'], $order) : '',
+        
+        // Single product variables
+        '%product_name%' => !empty($products) ? $products[0]['name'] : '',
+        '%product_quantity%' => !empty($products) ? $products[0]['quantity'] : '',
+        '%product_total%' => !empty($products) ? format_price($products[0]['total'], $order) : ''
     ];
 
+    // Replace all variables in text
     foreach ($variables as $key => $value) {
         $text = str_replace($key, $value, $text);
     }
@@ -174,27 +224,73 @@ function replace_variables($text, $order)
     return $text;
 }
 
-// Helper function to replace variables in JSON data
-function replace_variables_in_json($data, $order)
-{
+function replace_variables_in_json($data, $order) {
+    // Get all items from order
+    $items = $order->get_items();
+    $products = [];
+    $total_items = 0;
+    
+    // Process order items
+    foreach($items as $item) {
+        $products[] = [
+            'name' => $item->get_name(),
+            'quantity' => $item->get_quantity(),
+            'total' => $item->get_total()
+        ];
+        $total_items += $item->get_quantity();
+    }
+
+    // Build product lists
+    $product_list = '';
+    foreach($products as $product) {
+        $product_list .= sprintf(
+            "%s (Qty: %d) - %s\n",
+            $product['name'],
+            $product['quantity'],
+            format_price($product['total'], $order)
+        );
+    }
+
+    // Define all variables
     $variables = [
+        // Order details
+        '%order_id%' => $order->get_id(),
+        '%order_total%' => format_price($order->get_total(), $order),
+        '%order_subtotal%' => format_price($order->get_subtotal(), $order),
+        '%order_currency%' => $order->get_currency(),
+        '{{Amount}}' => format_price($order->get_total(), $order),
+        '%order_status%' => wc_get_order_status_name($order->get_status()), // Add order status
+        // Customer details
         '%billing_first_name%' => $order->get_billing_first_name(),
         '%billing_last_name%' => $order->get_billing_last_name(),
-        '%order_id%' => $order->get_id(),
-        '%order_total%' => $order->get_total(),
-        '{{Amount}}' => $order->get_total(), // Example for {{variable}} format
-        // Add more variables as needed
+        '%billing_full_name%' => $order->get_formatted_billing_full_name(),
+        '%billing_email%' => $order->get_billing_email(),
+        '%billing_phone%' => $order->get_billing_phone(),
+        
+        // Product details
+        '%product_list%' => $product_list,
+        '%total_items%' => $total_items,
+        '%first_product_name%' => !empty($products) ? $products[0]['name'] : '',
+        '%first_product_quantity%' => !empty($products) ? $products[0]['quantity'] : '',
+        '%first_product_total%' => !empty($products) ? format_price($products[0]['total'], $order) : '',
+        
+        // Single product variables
+        '%product_name%' => !empty($products) ? $products[0]['name'] : '',
+        '%product_quantity%' => !empty($products) ? $products[0]['quantity'] : '',
+        '%product_total%' => !empty($products) ? format_price($products[0]['total'], $order) : ''
     ];
 
+    // Replace variables in JSON data recursively
     array_walk_recursive($data, function (&$item) use ($variables) {
-        foreach ($variables as $key => $value) {
-            $item = str_replace($key, $value, $item);
+        if (is_string($item)) {
+            foreach ($variables as $key => $value) {
+                $item = str_replace($key, $value, $item);
+            }
         }
     });
 
     return $data;
 }
-
 // Helper functions for body construction
 function build_otp_message_body($phone, $otp_code) {
     if (empty($phone) || empty($otp_code)) {
