@@ -156,18 +156,20 @@ function whatsapp_send_message_via_api($phone, $template_name = '', $language_co
 }
 
 
-function format_price($amount, $order) {
+function format_price($amount, $order)
+{
     return number_format($amount, 2) . ' ' . $order->get_currency();
 }
 
-function replace_variables($text, $order) {
+function replace_variables($text, $order)
+{
     // Get all items from order
     $items = $order->get_items();
     $products = [];
     $total_items = 0;
-    
+
     // Process order items
-    foreach($items as $item) {
+    foreach ($items as $item) {
         $products[] = [
             'name' => $item->get_name(),
             'quantity' => $item->get_quantity(),
@@ -178,7 +180,7 @@ function replace_variables($text, $order) {
 
     // Build product lists
     $product_list = '';
-    foreach($products as $product) {
+    foreach ($products as $product) {
         $product_list .= sprintf(
             "%s (Qty: %d) - %s\n",
             $product['name'],
@@ -202,14 +204,14 @@ function replace_variables($text, $order) {
         '%billing_full_name%' => $order->get_formatted_billing_full_name(),
         '%billing_email%' => $order->get_billing_email(),
         '%billing_phone%' => $order->get_billing_phone(),
-        
+
         // Product details
         '%product_list%' => $product_list,
         '%total_items%' => $total_items,
         '%first_product_name%' => !empty($products) ? $products[0]['name'] : '',
         '%first_product_quantity%' => !empty($products) ? $products[0]['quantity'] : '',
         '%first_product_total%' => !empty($products) ? format_price($products[0]['total'], $order) : '',
-        
+
         // Single product variables
         '%product_name%' => !empty($products) ? $products[0]['name'] : '',
         '%product_quantity%' => !empty($products) ? $products[0]['quantity'] : '',
@@ -224,14 +226,15 @@ function replace_variables($text, $order) {
     return $text;
 }
 
-function replace_variables_in_json($data, $order) {
+function replace_variables_in_json($data, $order)
+{
     // Get all items from order
     $items = $order->get_items();
     $products = [];
     $total_items = 0;
-    
+
     // Process order items
-    foreach($items as $item) {
+    foreach ($items as $item) {
         $products[] = [
             'name' => $item->get_name(),
             'quantity' => $item->get_quantity(),
@@ -242,7 +245,7 @@ function replace_variables_in_json($data, $order) {
 
     // Build product lists
     $product_list = '';
-    foreach($products as $product) {
+    foreach ($products as $product) {
         $product_list .= sprintf(
             "%s (Qty: %d) - %s\n",
             $product['name'],
@@ -266,14 +269,14 @@ function replace_variables_in_json($data, $order) {
         '%billing_full_name%' => $order->get_formatted_billing_full_name(),
         '%billing_email%' => $order->get_billing_email(),
         '%billing_phone%' => $order->get_billing_phone(),
-        
+
         // Product details
         '%product_list%' => $product_list,
         '%total_items%' => $total_items,
         '%first_product_name%' => !empty($products) ? $products[0]['name'] : '',
         '%first_product_quantity%' => !empty($products) ? $products[0]['quantity'] : '',
         '%first_product_total%' => !empty($products) ? format_price($products[0]['total'], $order) : '',
-        
+
         // Single product variables
         '%product_name%' => !empty($products) ? $products[0]['name'] : '',
         '%product_quantity%' => !empty($products) ? $products[0]['quantity'] : '',
@@ -292,7 +295,8 @@ function replace_variables_in_json($data, $order) {
     return $data;
 }
 // Helper functions for body construction
-function build_otp_message_body($phone, $otp_code) {
+function build_otp_message_body($phone, $otp_code)
+{
     if (empty($phone) || empty($otp_code)) {
         error_log("Invalid parameters: phone or OTP code is empty");
         return false;
@@ -796,7 +800,7 @@ add_action('wp_enqueue_scripts', 'enqueue_whatsapp_otp_script');
 add_action('woocommerce_thankyou', 'send_order_confirmation_whatsapp', 10, 1);
 function send_order_confirmation_whatsapp($order_id)
 {
-    
+
     // Validate the order ID
     if (!$order_id || !is_numeric($order_id)) {
         error_log(__('Invalid order ID provided.', 'whatsapp-plugin'));
@@ -883,7 +887,7 @@ function send_order_cancellation_whatsapp($order_id)
 
     // Fetch the JSON data for the order confirmation
     $json_data = whatsapp_field('order_cancellation_message');
-    error_log("cancellation json".whatsapp_field('order_cancellation_message')."Now ended");
+    error_log("cancellation json" . whatsapp_field('order_cancellation_message') . "Now ended");
 
     if (!empty($json_data)) {
         // Call the WhatsApp API with the provided JSON data
@@ -997,7 +1001,7 @@ function notify_admin_order_completed($order_id)
 
     // Fetch the JSON data for the order confirmation
     $json_data = whatsapp_field('order_success_message');
-    error_log("new order book json".$json_data);
+    error_log("new order book json" . $json_data);
     if (!empty($json_data)) {
         // Call the WhatsApp API with the provided JSON data
         $result = whatsapp_send_message_via_api(
@@ -1011,7 +1015,7 @@ function notify_admin_order_completed($order_id)
             $json_data, // Pass the JSON data
             $order // Pass the order object for variable replacement
         );
-        
+
         // Log the result
         if ($result) {
             // error_log(sprintf(__('WhatsApp message sent successfully for order ID %s.', 'whatsapp-plugin'), $order_id));

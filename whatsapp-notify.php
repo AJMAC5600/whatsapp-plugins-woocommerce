@@ -2,7 +2,7 @@
 /*
 Plugin Name: WhatsApp Notify
 Description: Sends WhatsApp notifications to your clients for order status changes in WooCommerce.
-Author: Alots Solutions
+Author: Wacto Solutions
 Version: 1.0
 Text Domain: whatsapp-notify
 */

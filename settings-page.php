@@ -248,6 +248,11 @@ function display_whatsapp_config_page()
             .hidden {
                 display: none;
             }
+            .underline{
+                text-decoration: underline;
+                cursor: pointer;
+                border: 0.4px solid grey;
+            }
             
         </style>
 
@@ -258,14 +263,7 @@ function display_whatsapp_config_page()
             do_settings_sections('whatsapp-settings');
             
             ?>
-            <div class="variable-list <?php echo empty($api_key) || empty($api_url) ? 'hidden' : ''; ?>">
-                <h3><?php esc_html_e('Available Variables', 'whatsapp-plugin'); ?></h3>
-                <p><?php esc_html_e('%billing_first_name% - Customer\'s first name', 'whatsapp-plugin'); ?></p>
-                <p><?php esc_html_e('%billing_last_name% - Customer\'s last name', 'whatsapp-plugin'); ?></p>
-                <p><?php esc_html_e('%order_id% - Order ID', 'whatsapp-plugin'); ?></p>
-                <p><?php esc_html_e('%order_total% - Order total amount', 'whatsapp-plugin'); ?></p>
-                <!-- Add more variables as needed -->
-            </div>
+  <div class="underline"></div>
             <?php if (whatsapp_get_value('enable_otp')): ?>
                 <h3 class="title <?php echo empty($api_key) || empty($api_url) ? 'hidden' : ''; ?>"><?php esc_html_e('Authentication Templates', 'whatsapp-plugin'); ?></h3>
                 <table class="form-table <?php echo empty($api_key) || empty($api_url) ? 'hidden' : ''; ?>">
@@ -365,7 +363,7 @@ function display_whatsapp_config_page()
                         <tr>
                             <th><label for="<?php echo esc_attr($section . '_template'); ?>"><?php esc_html_e('Template', 'whatsapp-plugin'); ?></label></th>
                             <td>
-                                                                <select id="<?php echo esc_attr($section . '_template'); ?>"
+                                <select id="<?php echo esc_attr($section . '_template'); ?>"
                                         name="whatsapp_settings[<?php echo esc_attr($section); ?>_template]"
                                         data-section="<?php echo esc_attr($section); ?>">
                                     <option value=""><?php esc_html_e('Select Template', 'whatsapp-plugin'); ?></option>
